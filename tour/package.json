@@ -1,22 +1,33 @@
 {
-  "name": "tour",
+  "name": "@whooatour/tour",
   "version": "1.0.0",
-  "description": "ExpressJS, MongoDB와 마이크로서비스 구조를 사용해서 여행 예약 서비스",
-  "main": "index.js",
+  "description": "ExpressJS, MongoDB와 마이크로서비스 구조를 사용한 여행 예약 서비스의 예약 모듈",
+  "main": "app.js",
   "scripts": {
-    "start:dev": "nodemon server.js",
-    "start:prod": "NODE_ENV=production nodemon server.js"
+    "start:dev": "ts-node src/server.ts",
+    "start:prod": "NODE_ENV=production ts-node src/server.ts",
+    "debug": "ndb server.ts"
   },
   "author": "이창섭",
   "license": "ISC",
   "dependencies": {
+    "@types/node": "^20.12.8",
+    "@whooatour/common": "^1.0.23",
+    "body-parser": "^1.20.2",
     "dotenv": "^16.4.5",
+    "envalid": "^8.0.0",
     "express": "^4.19.2",
+    "express-validator": "^7.1.0",
+    "mongoose": "^8.3.3",
     "morgan": "^1.10.0",
+    "slugify": "^1.6.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/mongoose": "^5.11.97",
+    "@types/morgan": "^1.9.9",
     "@types/typescript": "^2.0.0",
     "eslint": "^8.57.0",
     "eslint-config-airbnb": "^19.0.4",
