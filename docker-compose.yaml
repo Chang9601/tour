@@ -1,0 +1,67 @@
+services:
+  auth:
+    container_name: tour-auth
+    # TODO: build 사용 시 npm ci 오류가 발생해서 일단 이미지를 따로 빌드(docker image build)하고 사용한다. build로 수정이 필요하다.
+    image: csup96/tour-auth
+    command: npm run start:dev
+    env_file:
+      - ./auth/.env
+    ports:
+      - '3000:3000'
+    volumes:
+      # .:/opt/express_app/app은 server.ts 파일을 찾을 수 없다는 오류가 발생한다.
+      - ./auth:/opt/express_app/app
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  tour:
+    container_name: tour-tour
+    image: csup96/tour-tour
+    command: npm run start:dev
+    env_file:
+      - ./tour/.env
+    ports:
+      - '3001:3001'
+    volumes:
+      - ./tour:/opt/express_app/app
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  mongo:
+    container_name: tour-mongo
+    image: mongo:7.0.9
+    ports:
+      - '27017:27017'
+    environment:
+      # 다음 환경변수는 관리자(admin) 데이터베이스에 사용자를 생성한다.
+      # 연결 문자열을 사용할 때 retryWrites=true&writeConcern=majority&authSource=admin을 추가해야 한다.
+      - MONGO_INITDB_ROOT_USERNAME: root
+      - MONGO_INITDB_ROOT_PASSWORD: root
+    volumes:
+      - mongodb:/data/db
+    healthcheck:
+      test: '[ `echo ''db.runCommand("ping").ok'' | mongo localhost:27017/test --quiet` ] && echo 0 || echo 1'
+      interval: 5s
+      timeout: 4s
+      retries: 5
+      start_period: 5m
+
+  mongo-express:
+    container_name: tour-mongo-express
+    image: mongo-express
+    ports:
+      - '8081:8081'
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+      ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo:27017/
+      ME_CONFIG_BASICAUTH: false
+
+volumes:
+  mongodb:

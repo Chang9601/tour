@@ -34,7 +34,7 @@
     "typeRoots": [
       "node_modules/@types"
     ] /* Specify multiple folders that act like './node_modules/@types'. */,
-    // "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
+    // "types": [] /* Specify type package names to be included without being referenced in a source file. */,
     // "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
     // "moduleSuffixes": [],                             /* List of file name suffixes to search when resolving a module. */
     // "allowImportingTsExtensions": true,               /* Allow imports to include TypeScript file extensions. Requires '--moduleResolution bundler' and either '--noEmit' or '--emitDeclarationOnly' to be set. */
@@ -108,8 +108,8 @@
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
-  /* ts-node는 files, include, exclude를 사용하여 점검할 파일을 결정한다. */
   "ts-node": { "files": true },
-  "include": ["src/**/*.ts", "test/**/*.ts", "env.d.ts", "index.d.ts"],
+  /* beforeAll을 찾을 수 없다는 오류가 발생해서 test 디렉터리를 추가한다. */
+  "include": ["src/**/*.ts", "test/**/*.ts", "env.d.ts"],
   "exclude": ["node_modules", "**/*.test.ts"]
 }
