@@ -18,15 +18,6 @@ interface TourAttr {
 }
 
 /*
- * 여행 모델이 가지는 속성을 기술하는 인터페이스.
- * TypeScript에게 여행 모델에서 사용 가능한 build() 메서드가 있을 것이라고 알려준다.
- * JavaScript와 달리 해당 인터페이스가 없으면 오류가 발생한다.
- */
-interface TourModel extends mongoose.Model<TourDocument> {
-  build(attrs: TourAttr): Promise<TourDocument>;
-}
-
-/*
  * 여행 도큐먼트가 가지는 속성을 기술하는 인터페이스.
  * 여행 도큐먼트가 여행 인스턴스를 생성할 때 전달하는 속성이 도큐먼트에 존재하는 속성과 다를 때 발생하는 문제를 해결한다.
  * 예를 들어, createdAt과 같은 속성을 여행 도큐먼트가 가질 수 있다.
@@ -40,6 +31,15 @@ interface TourDocument extends mongoose.Document {
   price: number;
   summary: string;
   coverImage: string;
+}
+
+/*
+ * 여행 모델이 가지는 속성을 기술하는 인터페이스.
+ * TypeScript에게 여행 모델에서 사용 가능한 build() 메서드가 있을 것이라고 알려준다.
+ * JavaScript와 달리 해당 인터페이스가 없으면 오류가 발생한다.
+ */
+interface TourModel extends mongoose.Model<TourDocument> {
+  build(attrs: TourAttr): Promise<TourDocument>;
 }
 
 /* 스키마는 데이터의 구조, 기본값 및 유효성을 설명하여 데이터를 모델화한다. */
@@ -159,9 +159,7 @@ const tourSchema = new mongoose.Schema(
         delete result._id;
       },
     },
-    /*
-     * 도큐먼트를 일반 객체(POJO)로 변환한다.
-     */
+    /* 도큐먼트를 일반 객체(POJO)로 변환한다. */
     toObject: { virtuals: true, versionKey: false },
   },
 );
