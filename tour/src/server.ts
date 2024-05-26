@@ -15,18 +15,18 @@ dotenv.config({
 });
 
 import { TourController } from './controller/tour.controller';
-import { App } from './app';
+import { TourApplication } from './app';
 import { validateEnv } from './util/env-validator';
 
 validateEnv();
 
-const app = new App(
+const tourApplication = new TourApplication(
   [new TourController()],
   process.env.PORT,
   process.env.MONGO_URI,
 );
 
-const server = app.listen();
+const server = tourApplication.listen();
 
 /*
  * 처리되지 않은 프로미스 거부는 프로미스가 거부되었지만 어디에서도 처리되지 않았다는 뜻이다.

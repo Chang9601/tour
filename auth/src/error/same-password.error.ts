@@ -1,6 +1,6 @@
 import { CoreError, CodeAttr } from '@whooatour/common';
 
-export class TourNotFoundError extends CoreError {
+export class SamePasswordError extends CoreError {
   constructor(
     public readonly code: CodeAttr,
     public readonly detail: string | string[],

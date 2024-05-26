@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tour-mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tour-mongo
+  template:
+    metadata:
+      labels:
+        app: tour-mongo
+    spec:
+      containers:
+        - name: tour-mongo
+          image: mongo:7.0.9

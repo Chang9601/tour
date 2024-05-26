@@ -1,0 +1,81 @@
+import { ValidationChain, checkSchema } from 'express-validator';
+import { RunnableValidationChains } from 'express-validator/lib/middlewares/schema';
+
+import { Code } from '@whooatour/common';
+
+import { PasswordMismatchError } from '../error/password-mismatch.error';
+
+export class UserValidator {
+  public static create(): RunnableValidationChains<ValidationChain> {
+    return checkSchema(
+      {
+        name: {
+          isString: { errorMessage: '이름은 문자로만 구성됩니다.' },
+          isLength: {
+            options: { min: 2 },
+            errorMessage: '이름은 2자 이상입니다.',
+          },
+          trim: true,
+        },
+        email: {
+          isEmail: { errorMessage: '잘못된 형식의 이메일입니다.' },
+          trim: true,
+        },
+        password: {
+          isStrongPassword: { errorMessage: '잘못된 형식의 비밀번호입니다.' },
+          isLength: {
+            options: { min: 8, max: 20 },
+            errorMessage: '비밀번호는 8자리 이상 20자리 이하입니다.',
+          },
+        },
+        passwordConfirm: {
+          custom: {
+            options: (value, { req }) => {
+              if (value !== req.body.password) {
+                throw new PasswordMismatchError(
+                  Code.BAD_REQUEST,
+                  '비밀번호가 일치하지 않습니다.',
+                  true,
+                );
+              }
+
+              return true;
+            },
+          },
+        },
+        // TODO: 파일 확장자 검증 함수 필요.
+        photo: {
+          optional: true,
+          isString: { errorMessage: '사진이 있어야 합니다.' },
+        },
+      },
+      ['body'],
+    );
+  }
+
+  public static update() {
+    return checkSchema(
+      {
+        name: {
+          optional: true,
+          isString: { errorMessage: '이름은 문자로만 구성됩니다.' },
+          isLength: {
+            options: { min: 2 },
+            errorMessage: '이름은 2자 이상입니다.',
+          },
+          trim: true,
+        },
+        email: {
+          optional: true,
+          isEmail: { errorMessage: '잘못된 형식의 이메일입니다.' },
+          trim: true,
+        },
+        photo: {
+          optional: true,
+          isString: { errorMessage: '사진이 있어야 합니다.' },
+        },
+      },
+      ['body'],
+    );
+  }
+}
