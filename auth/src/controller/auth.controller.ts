@@ -24,15 +24,13 @@ export class AuthController extends AbstractController {
   }
 
   private initializeRoutes(): void {
-    this.router
-      .route(this.path)
-      .post(...validationMiddleware(UserValidator.create()), this.createUser);
-
     // this.router
     //   .route(`${this.path}/:id`)
     //   .get(this.getTour)
     //   .patch(this.updateTour)
     //   .delete(this.deleteTour);
+
+    this.router.route(this.path).post(this.signIn);
 
     this.router.all('*', this.handleRoutes);
   }
@@ -40,7 +38,7 @@ export class AuthController extends AbstractController {
   private handleRoutes = async (
     request: Request,
     response: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     const error = {
       codeAttr: Code.NOT_FOUND,
@@ -51,18 +49,16 @@ export class AuthController extends AbstractController {
     next(error);
   };
 
-  private createUser = catchAsync(
-    async (request: Request, response: Response, next: NextFunction) => {
-      const user = await this.repository.create(request.body);
+  private signIn = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const { email, password } = request.body;
 
-      const success = ApiResponse.handleSuccess(
-        Code.CREATED.code,
-        Code.CREATED.message,
-        user,
-        '사용자를 생성했습니다.'
-      );
-
-      response.status(Code.CREATED.code).json(success);
-    }
+      if (!email || !password) {
+      }
+    },
   );
 }

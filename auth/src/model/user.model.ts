@@ -1,5 +1,6 @@
 import mongoose, { Types } from 'mongoose';
 import validator from 'validator';
+import * as bcryptjs from 'bcryptjs';
 
 interface UserAttr {
   name: string;
@@ -24,6 +25,9 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
+      required: [true, '이름이 있어야 합니다.'],
+      trim: true,
+      minlength: [2, '이름은 2자 이상입니다.'],
     },
     email: {
       type: String,
@@ -36,8 +40,10 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, '비밀번호가 있어야 합니다'],
-      minlength: 8,
+      minlength: [8, '비밀번호는 8자리 이상입니다'],
+      maxlength: [20, '비밀번호는 20자리 이하입니다.'],
       trim: true,
+      validate: [validator.isStrongPassword, '잘못된 형식의 비밀번호입니다.'],
     },
     photo: String,
   },
@@ -47,11 +53,22 @@ const userSchema = new mongoose.Schema(
       versionKey: false,
       transform(document, result) {
         delete result._id;
+        delete result.password;
       },
     },
     toObject: { virtuals: true, versionKey: false },
-  }
+  },
 );
+
+userSchema.pre('save', async function (next) {
+  /* 비밀번호가 변경된 경우만 함수를 실행한다. */
+  if (!this.isModified('password')) {
+    return next();
+  }
+
+  this.password = await bcryptjs.hash(this.password!, 12);
+  next();
+});
 
 userSchema.statics.build = async (attrs: UserAttr) => {
   return await User.create(attrs);

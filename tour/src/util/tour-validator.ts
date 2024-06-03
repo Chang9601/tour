@@ -6,10 +6,12 @@ export class TourValidator {
     return checkSchema(
       {
         name: {
-          isString: true,
-          isLength: { options: { min: 2, max: 20 } },
+          isString: { errorMessage: '이름이 있어야 합니다.' },
+          isLength: {
+            options: { min: 2, max: 20 },
+            errorMessage: '이름은 2자 이상 20자 이하입니다.',
+          },
           trim: true,
-          errorMessage: '이름은 2자 이상 20자 이하입니다.',
         },
         duration: {
           isInt: {
@@ -39,6 +41,7 @@ export class TourValidator {
           custom: {
             options: (value, { req }) => {
               if (value > req.body.price) {
+                // TODO: 맟춤 오류 클래스.
                 throw new Error('할인가는 정상가보다 작아야 합니다.');
               }
 
@@ -47,14 +50,12 @@ export class TourValidator {
           },
         },
         summary: {
-          isString: true,
+          isString: { errorMessage: '요약문이 있어야 합니다.' },
           trim: true,
-          errorMessage: '요약문이 있어야 합니다.',
         },
         coverImage: {
-          isString: true,
+          isString: { errorMessage: '표지 이미지가 있어야 합니다.' },
           trim: true,
-          errorMessage: '표지 이미지가 있어야 합니다.',
         },
       },
       ['body'],

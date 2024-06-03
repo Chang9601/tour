@@ -37,10 +37,11 @@ export class UserController extends AbstractController {
     this.router.all('*', this.handleRoutes);
   }
 
+  // TODO: 추상 컨트롤러에서 구현.
   private handleRoutes = async (
     request: Request,
     response: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     const error = {
       codeAttr: Code.NOT_FOUND,
@@ -52,17 +53,27 @@ export class UserController extends AbstractController {
   };
 
   private createUser = catchAsync(
-    async (request: Request, response: Response, next: NextFunction) => {
-      const user = await this.repository.create(request.body);
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.create({
+        name: request.body.name,
+        email: request.body.email,
+        password: request.body.password,
+        photo: request.body.photo,
+        ...request.body, // TODO: 코드 개선
+      });
 
       const success = ApiResponse.handleSuccess(
         Code.CREATED.code,
         Code.CREATED.message,
         user,
-        '사용자를 생성했습니다.'
+        '사용자를 생성했습니다.',
       );
 
       response.status(Code.CREATED.code).json(success);
-    }
+    },
   );
 }

@@ -91,8 +91,8 @@ const tourSchema = new mongoose.Schema(
       validate: {
         message: '할인가 ({VALUE}) 정상가보다 작아야 합니다.',
         /*
-         * this 예약어는 새로운 도큐먼트 생성 시에만 도큐먼트를 가리킨다.
-         * 따라서 갱신에는 작동하지 않는다.
+         * this 예약어는 새로운 도큐먼트 생성 시에만 도큐먼트를 가리킨다. 따라서 갱신에는 작동하지 않는다.
+         * 즉, save() 메서드와 create() 메서드에만 작동한다.
          *
          * TypeScript가 함수의 타입을 확인하려면 호출 시 this 예약어가 참조할 객체의 타입을 알아야 한다.
          * TypeScript는 validator 함수가 포함된 객체 리터럴의 메서드로 호출될 것이라고 잘못 추측한다.
