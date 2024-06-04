@@ -15,6 +15,11 @@ interface UserDocument extends mongoose.Document {
   email: string;
   password: string;
   photo: string;
+  matchPassword: (
+    plainPassword: string,
+    hashedPassword: string,
+  ) => Promise<boolean>;
+  isPasswordUpdatedAfterJwtIssued: (jwtTimestamp: number) => boolean;
 }
 
 interface UserModel extends mongoose.Model<UserDocument> {
@@ -43,9 +48,29 @@ const userSchema = new mongoose.Schema(
       minlength: [8, '비밀번호는 8자리 이상입니다'],
       maxlength: [20, '비밀번호는 20자리 이하입니다.'],
       trim: true,
+      // select: false /* 비밀번호가 출력에 나타나지 않는다.  */,
       validate: [validator.isStrongPassword, '잘못된 형식의 비밀번호입니다.'],
     },
     photo: String,
+    role: {
+      type: String,
+      enum: ['USER', 'CONTRIBUTOR', 'MODERATOR', 'ADMIN'],
+      default: 'USER',
+    },
+    passwordUpdatedAt: Date,
+    createdAt: {
+      type: Date,
+      default: Date.now(),
+      select: false,
+    },
+    updatedAt: {
+      type: Date,
+      select: false,
+    },
+    deletedAt: {
+      type: Date,
+      select: false,
+    },
   },
   {
     toJSON: {
@@ -70,8 +95,29 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+/* statics는 모델에 정의된 메서드이다. */
 userSchema.statics.build = async (attrs: UserAttr) => {
   return await User.create(attrs);
+};
+
+/* methods는 도큐먼트(인스턴스)에 정의된 메서드이다. */
+userSchema.methods.matchPassword = async function (
+  plainPassword: string,
+  hashedPassword: string,
+) {
+  return await bcryptjs.compare(plainPassword, hashedPassword);
+};
+
+userSchema.methods.isPasswordUpdatedAfterJwtIssued = function (
+  jwtTimestamp: number,
+) {
+  if (this.passwordUpdatedAt) {
+    const timestamp = parseInt(this.passwordUpdatedAt.getTime(), 10) / 1000;
+
+    return jwtTimestamp < timestamp;
+  }
+
+  return false;
 };
 
 const User = mongoose.model<UserDocument, UserModel>('User', userSchema);

@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
+import * as jwt from 'jsonwebtoken';
 
 import {
   AbstractController,
@@ -10,7 +11,9 @@ import {
 
 import { User } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
-import { UserValidator } from '../util/user-validator';
+import { InvalidCredentialsError } from '../error/invalid-credentials.error';
+import { UserNotFoundError } from '../error/user-not-found.error';
+import { authMiddleware } from '../auth.middleware';
 
 export class AuthController extends AbstractController {
   public readonly path = '/api/v1/auth';
@@ -24,13 +27,9 @@ export class AuthController extends AbstractController {
   }
 
   private initializeRoutes(): void {
-    // this.router
-    //   .route(`${this.path}/:id`)
-    //   .get(this.getTour)
-    //   .patch(this.updateTour)
-    //   .delete(this.deleteTour);
-
     this.router.route(this.path).post(this.signIn);
+
+    this.router.route(`${this.path}/:id`).get(authMiddleware, this.getUser);
 
     this.router.all('*', this.handleRoutes);
   }
@@ -49,6 +48,35 @@ export class AuthController extends AbstractController {
     next(error);
   };
 
+  private getUser = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.find({ _id: request.params.id });
+
+      if (!user) {
+        return next(
+          new UserNotFoundError(
+            Code.NOT_FOUND,
+            '사용자가 존재하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '사용자를 찾았습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
   private signIn = catchAsync(
     async (
       request: Request,
@@ -58,7 +86,51 @@ export class AuthController extends AbstractController {
       const { email, password } = request.body;
 
       if (!email || !password) {
+        return next(
+          new InvalidCredentialsError(
+            Code.BAD_REQUEST,
+            '이메일과 비밀번호를 입력하세요.',
+            true,
+          ),
+        );
       }
+
+      const user = await this.repository.find({ email });
+
+      if (!user) {
+        return next(
+          new InvalidCredentialsError(
+            Code.BAD_REQUEST,
+            '이메일 혹은 비밀번호가 정확하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      const match = await user.matchPassword(password, user.password);
+
+      if (!match) {
+        return next(
+          new InvalidCredentialsError(
+            Code.BAD_REQUEST,
+            '이메일 혹은 비밀번호가 정확하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRATION,
+      });
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        token,
+        '로그인 했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
     },
   );
 }

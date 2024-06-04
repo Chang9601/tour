@@ -11,6 +11,7 @@ import {
 import { User } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
 import { UserValidator } from '../util/user-validator';
+import { UserNotFoundError } from '../error/user-not-found.error';
 
 export class UserController extends AbstractController {
   public readonly path = '/api/v1/users';
@@ -28,11 +29,7 @@ export class UserController extends AbstractController {
       .route(this.path)
       .post(...validationMiddleware(UserValidator.create()), this.createUser);
 
-    // this.router
-    //   .route(`${this.path}/:id`)
-    //   .get(this.getTour)
-    //   .patch(this.updateTour)
-    //   .delete(this.deleteTour);
+    this.router.route(`${this.path}/:id`).get(this.getUser);
 
     this.router.all('*', this.handleRoutes);
   }
@@ -51,6 +48,35 @@ export class UserController extends AbstractController {
 
     next(error);
   };
+
+  private getUser = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.find({ _id: request.params.id });
+
+      if (!user) {
+        return next(
+          new UserNotFoundError(
+            Code.NOT_FOUND,
+            '사용자가 존재하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '사용자를 찾았습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
 
   private createUser = catchAsync(
     async (

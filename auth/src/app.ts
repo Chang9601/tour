@@ -66,7 +66,7 @@ export class App {
   // ERROR: 컨트롤러 2개 사용 시 오류 발생.
   private initializeControllers(controllers: AbstractController[]): void {
     controllers.forEach((controller) => {
-      this.app.use(controller.router);
+      this.app.use('/', controller.router);
     });
   }
 

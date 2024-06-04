@@ -19,7 +19,7 @@ import { UserController } from './controller/user.controller';
 validateEnv();
 
 const app = new App(
-  [new UserController(), new AuthController()],
+  [new AuthController(), new UserController()],
   process.env.PORT,
   process.env.MONGO_URI,
 );
