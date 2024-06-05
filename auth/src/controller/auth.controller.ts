@@ -13,7 +13,11 @@ import { User } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 import { UserNotFoundError } from '../error/user-not-found.error';
-import { authMiddleware } from '../auth.middleware';
+import {
+  authenticationMiddleware,
+  authorizeMiddleware,
+} from '../auth.middleware';
+import { UserRole } from '../enum/user-role.enum';
 
 export class AuthController extends AbstractController {
   public readonly path = '/api/v1/auth';
@@ -29,9 +33,7 @@ export class AuthController extends AbstractController {
   private initializeRoutes(): void {
     this.router.route(this.path).post(this.signIn);
 
-    this.router.route(`${this.path}/:id`).get(authMiddleware, this.getUser);
-
-    this.router.all('*', this.handleRoutes);
+    // this.router.all('*', this.handleRoutes);
   }
 
   private handleRoutes = async (
@@ -47,35 +49,6 @@ export class AuthController extends AbstractController {
 
     next(error);
   };
-
-  private getUser = catchAsync(
-    async (
-      request: Request,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      const user = await this.repository.find({ _id: request.params.id });
-
-      if (!user) {
-        return next(
-          new UserNotFoundError(
-            Code.NOT_FOUND,
-            '사용자가 존재하지 않습니다.',
-            true,
-          ),
-        );
-      }
-
-      const success = ApiResponse.handleSuccess(
-        Code.OK.code,
-        Code.OK.message,
-        user,
-        '사용자를 찾았습니다.',
-      );
-
-      response.status(Code.OK.code).json(success);
-    },
-  );
 
   private signIn = catchAsync(
     async (

@@ -1,6 +1,11 @@
 import mongoose, { Types } from 'mongoose';
 import validator from 'validator';
 import * as bcryptjs from 'bcryptjs';
+import * as crypto from 'crypto';
+
+import { Optional } from '@whooatour/common';
+
+import { UserRole } from '../enum/user-role.enum';
 
 interface UserAttr {
   name: string;
@@ -14,12 +19,16 @@ interface UserDocument extends mongoose.Document {
   name: string;
   email: string;
   password: string;
+  passwordResetToken: Optional<string>;
+  passwordResetTokenExpiration: Optional<Date>;
   photo: string;
+  role: UserRole;
   matchPassword: (
     plainPassword: string,
     hashedPassword: string,
   ) => Promise<boolean>;
   isPasswordUpdatedAfterJwtIssued: (jwtTimestamp: number) => boolean;
+  createPasswordResetToken: () => string;
 }
 
 interface UserModel extends mongoose.Model<UserDocument> {
@@ -54,10 +63,17 @@ const userSchema = new mongoose.Schema(
     photo: String,
     role: {
       type: String,
-      enum: ['USER', 'CONTRIBUTOR', 'MODERATOR', 'ADMIN'],
-      default: 'USER',
+      enum: [
+        UserRole.User,
+        UserRole.Contributor,
+        UserRole.Moderator,
+        UserRole.Admin,
+      ],
+      default: UserRole.User,
     },
     passwordUpdatedAt: Date,
+    passwordResetToken: String,
+    passwordResetTokenExpiration: Date,
     createdAt: {
       type: Date,
       default: Date.now(),
@@ -92,6 +108,7 @@ userSchema.pre('save', async function (next) {
   }
 
   this.password = await bcryptjs.hash(this.password!, 12);
+
   next();
 });
 
@@ -104,13 +121,13 @@ userSchema.statics.build = async (attrs: UserAttr) => {
 userSchema.methods.matchPassword = async function (
   plainPassword: string,
   hashedPassword: string,
-) {
+): Promise<boolean> {
   return await bcryptjs.compare(plainPassword, hashedPassword);
 };
 
 userSchema.methods.isPasswordUpdatedAfterJwtIssued = function (
   jwtTimestamp: number,
-) {
+): boolean {
   if (this.passwordUpdatedAt) {
     const timestamp = parseInt(this.passwordUpdatedAt.getTime(), 10) / 1000;
 
@@ -118,6 +135,28 @@ userSchema.methods.isPasswordUpdatedAfterJwtIssued = function (
   }
 
   return false;
+};
+
+userSchema.methods.createPasswordResetToken = function (): string {
+  /*
+   * 비밀번호 재설정 토큰은 사용자에게 보내지는데 새 비밀번호를 생성할 수 있다.
+   * 비밀번호 재설정 토큰에 접근할 수 있는 사람은 사용자뿐이다. 그래서 실제로 비밀번호처럼 작동한다.
+   * 본질적으로 비밀번호와 같기 때문에 공격자가 데이터베이스에 접근할 경우 새 비밀번호를 설정하여 계정에 접근할 수 있다.
+   * 비밀번호 재설정 토큰을 데이터베이스에 그냥 저장한다면 공격자가 데이터베이스에 접근하고 비밀번호 재설정 토큰을 사용하여 새 비밀번호를 생성할 수 있다.
+   * 즉, 공격자가 계정을 제어한다. 따라서, 비밀번호와 마찬가지로 비밀번호 재설정 토큰을 평문으로 데이터베이스에 저장해서는 안 된다.
+   * 하지만 비밀번호와는 달리 매우 강력한 암호화 방법은 필요하지 않기에 내장 crypto 모듈을 사용한다.
+   */
+  const token = crypto.randomBytes(32).toString('hex');
+
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(token)
+    .digest('hex');
+
+  this.passwordResetTokenExpiration = Date.now() + 10 * 60 * 1000;
+
+  /* 비밀번호처럼 암호문만 데이터베이스에 저장한다. */
+  return token;
 };
 
 const User = mongoose.model<UserDocument, UserModel>('User', userSchema);
