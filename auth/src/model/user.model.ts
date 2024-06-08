@@ -1,7 +1,8 @@
+import * as crypto from 'crypto';
+
 import mongoose, { Types } from 'mongoose';
 import validator from 'validator';
 import * as bcryptjs from 'bcryptjs';
-import * as crypto from 'crypto';
 
 import { Optional } from '@whooatour/common';
 
@@ -22,7 +23,7 @@ interface UserDocument extends mongoose.Document {
   passwordResetToken: Optional<string>;
   passwordResetTokenExpiration: Optional<Date>;
   photo: string;
-  role: UserRole;
+  userRole: UserRole;
   matchPassword: (
     plainPassword: string,
     hashedPassword: string,
@@ -57,11 +58,17 @@ const userSchema = new mongoose.Schema(
       minlength: [8, '비밀번호는 8자리 이상입니다'],
       maxlength: [20, '비밀번호는 20자리 이하입니다.'],
       trim: true,
-      // select: false /* 비밀번호가 출력에 나타나지 않는다.  */,
+      /*
+       * 비밀번호가 출력에 나타나지 않는다.
+       * true로 설정해야 도큐먼트에 나타난다.
+       * 즉, 도큐먼트에 추가해도 false이면 나타나지 않는다.
+       * TODO: 하지만 updatedAt은 select: false라도 오류가 발생하지 않는다?!
+       */
+      //select: false,
       validate: [validator.isStrongPassword, '잘못된 형식의 비밀번호입니다.'],
     },
     photo: String,
-    role: {
+    userRole: {
       type: String,
       enum: [
         UserRole.User,
@@ -71,7 +78,13 @@ const userSchema = new mongoose.Schema(
       ],
       default: UserRole.User,
     },
-    passwordUpdatedAt: Date,
+    active: {
+      type: Boolean,
+      default: true,
+      select: false,
+    },
+    // TODO: updatedAt 하나로 통일?
+    passwordUpdatedAt: { type: Date, select: false },
     passwordResetToken: String,
     passwordResetTokenExpiration: Date,
     createdAt: {
@@ -108,6 +121,25 @@ userSchema.pre('save', async function (next) {
   }
 
   this.password = await bcryptjs.hash(this.password!, 12);
+
+  next();
+});
+
+userSchema.pre('save', function (next) {
+  /* 비밀번호가 변경되지 않았거나 새로운 도큐먼트인 경우 넘어간다. */
+  if (!this.isModified('password') || this.isNew) {
+    return next();
+  }
+
+  const now = new Date(Date.now() - 1000);
+  //this.updatedAt = this.passwordUpdatedAt = now;
+
+  next();
+});
+
+userSchema.pre('find', function (next) {
+  /* 삭제(즉, 비활성화)된 사용자는 목록에서 제외한다. */
+  this.find({ active: true });
 
   next();
 });
@@ -153,7 +185,7 @@ userSchema.methods.createPasswordResetToken = function (): string {
     .update(token)
     .digest('hex');
 
-  this.passwordResetTokenExpiration = Date.now() + 10 * 60 * 1000;
+  this.passwordResetTokenExpiration = new Date(Date.now() + 10 * 60 * 1000);
 
   /* 비밀번호처럼 암호문만 데이터베이스에 저장한다. */
   return token;

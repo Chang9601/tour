@@ -1,5 +1,3 @@
-import { UserPayload } from '@whooatour/common';
-
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
@@ -7,8 +5,13 @@ declare global {
       PORT: number;
       MONGO_URI: string;
 
-      JWT_SECRET: string;
-      JWT_EXPIRATION: string;
+      COOKIE_ACCESS_EXPIRATION: number;
+      COOKIE_REFRESH_EXPIRATION: number;
+
+      JWT_ACCESS_SECRET: string;
+      JWT_REFRESH_SECRET: string;
+      JWT_ACCESS_EXPIRATION: string;
+      JWT_REFRESH_EXPIRATION: string;
 
       NODEMAILER_HOST: string;
       NODEMAILER_PORT: number;

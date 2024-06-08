@@ -1,28 +1,37 @@
 import * as crypto from 'crypto';
 
 import { NextFunction, Request, Response, Router } from 'express';
-import * as jwt from 'jsonwebtoken';
 
 import {
   AbstractController,
   ApiResponse,
   Code,
+  CookieUtil,
+  EmailMessage,
+  EmailUtil,
+  JwtPayload,
+  JwtUtil,
+  QueryBuilder,
+  QueryRequest,
+  RequestWithUser,
   catchAsync,
+  fieldFilter,
   validationMiddleware,
 } from '@whooatour/common';
 
-import { User } from '../model/user.model';
-import { UserRepository } from '../repository/user.repository';
-import { UserValidator } from '../util/user-validator';
-import { UserNotFoundError } from '../error/user-not-found.error';
 import {
   authenticationMiddleware,
   authorizeMiddleware,
 } from '../auth.middleware';
-import { EmailMessage } from '../type/email-message';
-import { EmailUtil } from '../util/email-util';
-import { EmailSendError } from '../error/email-send.error';
 import { UserRole } from '../enum/user-role.enum';
+import { UserNotFoundError } from '../error/user-not-found.error';
+import { InvalidCredentialsError } from '../error/invalid-credentials.error';
+import { EmailSendError } from '../error/email-send.error';
+import { SamePasswordError } from '../error/same-password.error';
+import { InvalidApiError } from '../error/invalid-api.error';
+import { User } from '../model/user.model';
+import { UserRepository } from '../repository/user.repository';
+import { UserValidator } from '../util/user-validator';
 
 export class UserController extends AbstractController {
   public readonly path = '/api/v1/users';
@@ -35,10 +44,17 @@ export class UserController extends AbstractController {
     this.initializeRoutes();
   }
 
-  private initializeRoutes(): void {
+  private initializeRoutes = (): void => {
     this.router
       .route(this.path)
-      .post(...validationMiddleware(UserValidator.create()), this.createUser);
+      .get(
+        authenticationMiddleware,
+        authorizeMiddleware(UserRole.Admin),
+        this.getUsers,
+      )
+      .post(...validationMiddleware(UserValidator.create()), this.createUser)
+      .patch(authenticationMiddleware, this.updateUser)
+      .delete(authenticationMiddleware, this.deleteUser);
 
     this.router
       .route(`${this.path}/:id`)
@@ -49,6 +65,10 @@ export class UserController extends AbstractController {
       );
 
     this.router
+      .route(`${this.path}/update-password`)
+      .patch(authenticationMiddleware, this.updatePassword);
+
+    this.router
       .route(`${this.path}/forget-password`)
       .post(authenticationMiddleware, this.forgetPassword);
 
@@ -57,7 +77,7 @@ export class UserController extends AbstractController {
       .patch(authenticationMiddleware, this.resetPassword);
 
     // this.router.all('*', this.handleRoutes);
-  }
+  };
 
   // TODO: 추상 컨트롤러에서 구현.
   private handleRoutes = async (
@@ -103,6 +123,34 @@ export class UserController extends AbstractController {
     },
   );
 
+  private getUsers = catchAsync(
+    async (
+      request: QueryRequest,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const queryBuilder = new QueryBuilder(
+        this.repository.findAll(),
+        request.query,
+      )
+        .filter()
+        .sort()
+        .project()
+        .paginate();
+
+      const users = await queryBuilder.query;
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        users,
+        '사용자 목록을 찾았습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
   private createUser = catchAsync(
     async (
       request: Request,
@@ -129,6 +177,163 @@ export class UserController extends AbstractController {
     },
   );
 
+  private updateUser = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      /* 1. 비밀번호 수정 시 오류를 전송한다. */
+      if (request.body.password) {
+        return next(
+          new InvalidApiError(
+            Code.BAD_REQUEST,
+            '비밀번호를 수정하려면 다른 API를 사용하세요.',
+            true,
+          ),
+        );
+      }
+
+      /* 2. 필요없는 필드를 여과한다. */
+      const field = fieldFilter(request.body, 'name', 'email', 'photo');
+
+      /* 3. 사용자를 갱신한다. */
+      // TODO: 더 간단한 방법?
+      const user = await this.repository.update(
+        { _id: request.user?.id },
+        { ...field, updatedAt: Date.now() },
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '사용자를 갱신했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private deleteUser = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      await this.repository.update(
+        { _id: request.user?.id },
+        { active: false },
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        null,
+        '사용자를 삭제했습니다.',
+      );
+
+      // TODO: 204일 경우 데이터 전송이 안된다.
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private updatePassword = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      /* 1. 아이디를 기준으로 사용자를 조회한다(로그인한 상태.). */
+      const user = await this.repository.find({ _id: request.user?.id });
+
+      if (!user) {
+        return next(
+          new UserNotFoundError(
+            Code.NOT_FOUND,
+            '아이디에 해당하는 사용자가 존재하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      const oldPassword = request.body.oldPassword;
+      const newPassword = request.body.newPassword;
+
+      /* 2. 비밀번호가 일치하는지 확인한다. */
+      if (!(await user.matchPassword(oldPassword, user.password))) {
+        return next(
+          new InvalidCredentialsError(
+            Code.BAD_REQUEST,
+            '비밀번호가 정확하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      /* 3. 새로운 비밀번호가 이전 비밀번호와 같은 경우를 제외한다. */
+      if (oldPassword === newPassword) {
+        return next(
+          new SamePasswordError(
+            Code.BAD_REQUEST,
+            '새 비밀번호는 현재 비밀번호와 달라야 합니다.',
+            true,
+          ),
+        );
+      }
+
+      /* 4. 비밀번호를 갱신한다. */
+      user.password = newPassword;
+      await user.save();
+
+      /* 5. 사용자를 로그인하고 쿠키를 전송한다. */
+      const payload: JwtPayload = { id: user._id };
+
+      const jwtAccess = JwtUtil.issue(
+        payload,
+        process.env.JWT_ACCESS_SECRET,
+        process.env.JWT_ACCESS_EXPIRATION,
+      );
+      const jwtRefresh = JwtUtil.issue(
+        payload,
+        process.env.JWT_REFRESH_SECRET,
+        process.env.JWT_REFRESH_EXPIRATION,
+      );
+
+      const cookieAccess = CookieUtil.build(
+        'AccessToken',
+        jwtAccess,
+        true,
+        process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
+        'Strict',
+        '/',
+        process.env.NODE_ENV === 'production' ? true : false,
+      );
+      const cookieRefresh = CookieUtil.build(
+        'RefreshToken',
+        jwtRefresh,
+        true,
+        process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
+        'Strict',
+        '/',
+        process.env.NODE_ENV === 'production' ? true : false,
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '로그인 했습니다.',
+      );
+
+      response
+        .status(Code.OK.code)
+        .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
+        .json(success);
+    },
+  );
+
+  // TODO: 이메일 일치 여부.
   private forgetPassword = catchAsync(
     async (
       request: Request,
@@ -176,7 +381,7 @@ export class UserController extends AbstractController {
         const success = ApiResponse.handleSuccess(
           Code.OK.code,
           Code.OK.message,
-          null,
+          passwordResetToken,
           '비밀번호 재설정 토큰이 전송되었습니다.',
         );
 
@@ -230,23 +435,55 @@ export class UserController extends AbstractController {
 
       /*
        * 갱신 시 여행(findOneAnddUpdate() 메서드)과 달리  save() 메서드를 사용한다.
-       * 유효성 검사와 비밀번호 암호화와 같은 작업을 실행해야 하기 때문이다.
+       * 유효성 검사와 비밀번호 암호화(e.g., 미들웨어)와 같은 작업을 실행해야 하기 때문이다.
        */
       await user.save();
 
       /* 3. 비밀번호 변경 타임스탬프 필드를 갱신한다. */
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRATION,
-      });
+      const payload: JwtPayload = { id: user._id };
 
+      const jwtAccess = JwtUtil.issue(
+        payload,
+        process.env.JWT_ACCESS_SECRET,
+        process.env.JWT_ACCESS_EXPIRATION,
+      );
+      const jwtRefresh = JwtUtil.issue(
+        payload,
+        process.env.JWT_REFRESH_SECRET,
+        process.env.JWT_REFRESH_EXPIRATION,
+      );
+
+      const cookieAccess = CookieUtil.build(
+        'AccessToken',
+        jwtAccess,
+        true,
+        process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
+        'Strict',
+        '/',
+        process.env.NODE_ENV === 'production' ? true : false,
+      );
+      const cookieRefresh = CookieUtil.build(
+        'RefreshToken',
+        jwtRefresh,
+        true,
+        process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
+        'Strict',
+        '/',
+        process.env.NODE_ENV === 'production' ? true : false,
+      );
+
+      /* 4. 사용자를 로그인하고 쿠키를 전송한다. */
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
         Code.OK.message,
-        token,
+        user,
         '로그인 했습니다.',
       );
 
-      response.status(Code.OK.code).json(success);
+      response
+        .status(Code.OK.code)
+        .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
+        .json(success);
     },
   );
 }

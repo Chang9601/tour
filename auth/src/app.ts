@@ -1,6 +1,7 @@
 import { Server } from 'http';
 
 import bodyParser from 'body-parser';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
@@ -34,6 +35,8 @@ export class App {
 
   private initializeMiddlewares(): void {
     this.app.use(bodyParser.json());
+    this.app.use(cookieParser());
+
     if (process.env.NODE_ENV === 'development') {
       this.app.use(morgan('dev'));
     }

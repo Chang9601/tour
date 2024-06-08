@@ -1,45 +1,37 @@
 import { NextFunction, Response } from 'express';
-import * as jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 
 import {
   Code,
+  JwtUtil,
   RequestWithUser,
   UserPayload,
   catchAsync,
 } from '@whooatour/common';
 
+import { UserRole } from './enum/user-role.enum';
+import { UnauthorizedUserError } from './error/unauthorized-user.error';
 import { UnauthenticatedUserError } from './error/unauthenticated-user.error';
-import { User } from './model/user.model';
 import { UserNotFoundError } from './error/user-not-found.error';
 import { InvalidJwtAfterPasswordUpdateError } from './error/invalid-jwt-after-password-update.error';
+import { User } from './model/user.model';
 import { UserRepository } from './repository/user.repository';
-import { UnauthorizedUserError } from './error/unauthorized-user.error';
-import { UserRole } from './enum/user-role.enum';
-
-// TODO: 반환형 명시.
-const promisifiedJwtVerify = (token: string, secret: string) => {
-  return new Promise((resolve, reject) => {
-    jwt.verify(token, secret, {}, (error, decoded) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(decoded);
-      }
-    });
-  });
-};
 
 const authenticationMiddleware = catchAsync(
   async (request: RequestWithUser, response: Response, next: NextFunction) => {
     let token = null;
 
+    /* Beaer 토큰을 사용하는 경우. */
+    // if (
+    //   request.headers.authorization &&
+    //   request.headers.authorization.startsWith('Bearer')
+    // ) {
+    //   token = request.headers.authorization.split(' ')[1];
+    // }
+
     /* 1. 토큰을 추출한다. */
-    if (
-      request.headers.authorization &&
-      request.headers.authorization.startsWith('Bearer')
-    ) {
-      token = request.headers.authorization.split(' ')[1];
+    if (request.cookies && request.cookies.AccessToken) {
+      token = request.cookies.AccessToken;
     }
 
     if (!token) {
@@ -54,9 +46,9 @@ const authenticationMiddleware = catchAsync(
 
     /* 2. 토큰을 검증한다. */
     /* 콜백함수를 프로미스로 변형한다. */
-    const decoded = (await promisifiedJwtVerify(
+    const decoded = (await JwtUtil.verify(
       token,
-      process.env.JWT_SECRET,
+      process.env.JWT_ACCESS_SECRET,
     )) as {
       id: Types.ObjectId;
       iat: number;
@@ -90,7 +82,7 @@ const authenticationMiddleware = catchAsync(
     /* 접근 제어되는 경로에 접근을 허락한다. */
     const userPayload: UserPayload = {
       id: user._id,
-      role: user.role,
+      role: user.userRole,
     };
 
     request.user = userPayload;
@@ -108,7 +100,7 @@ const authorizeMiddleware = (...roles: UserRole[]) => {
     if (!roles.includes(request.user!.role)) {
       return next(
         new UnauthorizedUserError(
-          Code.UNAUTHORIZED,
+          Code.FORBIDDEN,
           '작업을 수행할 권한이 없습니다.',
           true,
         ),

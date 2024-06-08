@@ -1,23 +1,19 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import * as jwt from 'jsonwebtoken';
 
 import {
   AbstractController,
   ApiResponse,
   Code,
+  CookieUtil,
+  JwtPayload,
+  JwtUtil,
   catchAsync,
-  validationMiddleware,
 } from '@whooatour/common';
 
+import { authenticationMiddleware } from '../auth.middleware';
+import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 import { User } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
-import { InvalidCredentialsError } from '../error/invalid-credentials.error';
-import { UserNotFoundError } from '../error/user-not-found.error';
-import {
-  authenticationMiddleware,
-  authorizeMiddleware,
-} from '../auth.middleware';
-import { UserRole } from '../enum/user-role.enum';
 
 export class AuthController extends AbstractController {
   public readonly path = '/api/v1/auth';
@@ -30,11 +26,14 @@ export class AuthController extends AbstractController {
     this.initializeRoutes();
   }
 
-  private initializeRoutes(): void {
-    this.router.route(this.path).post(this.signIn);
+  private initializeRoutes = (): void => {
+    this.router.route(`${this.path}/sign-in`).post(this.signIn);
+    this.router
+      .route(`${this.path}/sign-out`)
+      .post(authenticationMiddleware, this.signOut);
 
     // this.router.all('*', this.handleRoutes);
-  }
+  };
 
   private handleRoutes = async (
     request: Request,
@@ -69,8 +68,7 @@ export class AuthController extends AbstractController {
       }
 
       const user = await this.repository.find({ email });
-
-      if (!user) {
+      if (!user || !(await user.matchPassword(password, user.password))) {
         return next(
           new InvalidCredentialsError(
             Code.BAD_REQUEST,
@@ -80,30 +78,73 @@ export class AuthController extends AbstractController {
         );
       }
 
-      const match = await user.matchPassword(password, user.password);
+      const payload: JwtPayload = { id: user._id };
 
-      if (!match) {
-        return next(
-          new InvalidCredentialsError(
-            Code.BAD_REQUEST,
-            '이메일 혹은 비밀번호가 정확하지 않습니다.',
-            true,
-          ),
-        );
-      }
+      const jwtAccess = JwtUtil.issue(
+        payload,
+        process.env.JWT_ACCESS_SECRET,
+        process.env.JWT_ACCESS_EXPIRATION,
+      );
+      const jwtRefresh = JwtUtil.issue(
+        payload,
+        process.env.JWT_REFRESH_SECRET,
+        process.env.JWT_REFRESH_EXPIRATION,
+      );
 
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRATION,
-      });
+      const cookieAccess = CookieUtil.build(
+        'AccessToken',
+        jwtAccess,
+        true,
+        process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
+        'Strict',
+        '/',
+        process.env.NODE_ENV === 'production' ? true : false,
+      );
+      const cookieRefresh = CookieUtil.build(
+        'RefreshToken',
+        jwtRefresh,
+        true,
+        process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
+        'Strict',
+        '/',
+        process.env.NODE_ENV === 'production' ? true : false,
+      );
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
         Code.OK.message,
-        token,
+        user,
         '로그인 했습니다.',
       );
 
-      response.status(Code.OK.code).json(success);
+      response
+        .status(Code.OK.code)
+        .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
+        .json(success);
+    },
+  );
+
+  private signOut = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const cookieAccess = CookieUtil.clear('AccessToken', '/');
+      const cookieRefresh = CookieUtil.clear('RefreshToken', '/');
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        null,
+        '로그아웃 했습니다.',
+      );
+
+      response
+        .status(Code.OK.code)
+        //..cookie('AccessToken', null, { maxAge: 0 })
+        .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
+        .json(success);
     },
   );
 }
