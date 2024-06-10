@@ -108,6 +108,8 @@ const userSchema = new mongoose.Schema(
       transform(document, result) {
         delete result._id;
         delete result.password;
+        delete result.passwordResetToken;
+        delete result.passwordResetTokenExpiration;
       },
     },
     toObject: { virtuals: true, versionKey: false },

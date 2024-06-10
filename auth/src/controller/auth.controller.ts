@@ -142,7 +142,6 @@ export class AuthController extends AbstractController {
 
       response
         .status(Code.OK.code)
-        //..cookie('AccessToken', null, { maxAge: 0 })
         .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
         .json(success);
     },

@@ -108,6 +108,6 @@
   },
   /* ts-node는 files, include, exclude를 사용하여 점검할 파일을 결정한다. */
   "ts-node": { "files": true },
-  "include": ["src/**/*.ts", "env.d.ts"],
+  "include": ["src/**/*.ts", "env.d.ts", "../auth/src/index.d.ts"],
   "exclude": ["node_modules"]
 }

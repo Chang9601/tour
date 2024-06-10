@@ -10,10 +10,10 @@ import {
   catchAsync,
 } from '@whooatour/common';
 
-import { Tour } from '../model/tour.model';
-import { TourValidator } from '../util/tour-validator';
-import { TourRepository } from '../repository/tour.repository';
 import { TourNotFoundError } from '../error/tour-not-found.error';
+import { Tour } from '../model/tour.model';
+import { TourRepository } from '../repository/tour.repository';
+import { TourValidator } from '../util/tour-validator';
 
 export class TourController extends AbstractController {
   public readonly path = '/api/v1/tours';
@@ -26,7 +26,7 @@ export class TourController extends AbstractController {
     this.initializeRoutes();
   }
 
-  private initializeRoutes(): void {
+  private initializeRoutes = (): void => {
     /* 매개변수 미들웨어는 특정 매개변수에 대해서만 실행되는 미들웨어이다. 즉, URL에 특정 매개변수를 가지고 있을 때 실행된다. */
     // this.router.param('id');
 
@@ -54,7 +54,7 @@ export class TourController extends AbstractController {
       .delete(this.deleteTour);
 
     this.router.all('*', this.handleRoutes);
-  }
+  };
 
   private handleRoutes = async (
     request: Request,
