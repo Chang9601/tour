@@ -7,13 +7,13 @@ import {
   CookieUtil,
   JwtPayload,
   JwtUtil,
+  User,
+  UserRepository,
+  authenticationMiddleware,
   catchAsync,
 } from '@whooatour/common';
 
-import { authenticationMiddleware } from '../auth.middleware';
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
-import { User } from '../model/user.model';
-import { UserRepository } from '../repository/user.repository';
 
 export class AuthController extends AbstractController {
   public readonly path = '/api/v1/auth';
@@ -91,7 +91,7 @@ export class AuthController extends AbstractController {
         process.env.JWT_REFRESH_EXPIRATION,
       );
 
-      const cookieAccess = CookieUtil.build(
+      const cookieAccess = CookieUtil.set(
         'AccessToken',
         jwtAccess,
         true,
@@ -100,7 +100,7 @@ export class AuthController extends AbstractController {
         '/',
         process.env.NODE_ENV === 'production' ? true : false,
       );
-      const cookieRefresh = CookieUtil.build(
+      const cookieRefresh = CookieUtil.set(
         'RefreshToken',
         jwtRefresh,
         true,

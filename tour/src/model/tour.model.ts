@@ -122,6 +122,32 @@ const tourSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    startLocation: {
+      // GeoJSON
+      type: {
+        type: String,
+        default: 'Point',
+        enum: ['Point'],
+      },
+      coordinates: [Number],
+      address: String,
+      description: String,
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: 'Point',
+          enum: ['Point'],
+        },
+        coordinates: [Number],
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
+    //guides: Array,
+    guides: [{ type: mongoose.Schema.ObjectId, ref: 'User' }],
     startDate: [Date],
     createdAt: {
       type: Date,
@@ -139,14 +165,17 @@ const tourSchema = new mongoose.Schema(
   },
   {
     /*
-     * 메서드의 반환 값은 JSON.stringify() 메서드 호출 시 사용된다.
+     * toJSON() 메서드의 반환 값은 JSON.stringify() 메서드 호출 시 사용된다.
      * toObject() 메서드와 동일한 옵션을 가지지만 toJSON() 메서드 옵션과 toObject() 메서드 옵션 사이에는 한 가지 차이점이 있다.
-     * toJSON() 메서드 호출 시, JSON.stringify()가 기본적으로 Map을 객체로 변환하지 않기 때문에 flattenMaps 옵션이 기본적으로 true로 설정된다.
-     * toObject() 메서드 호출 시, flattenMaps 옵션이 기본적으로 false로 설정된다.
+     * toJSON() 메서드 호출 시 JSON.stringify() 메서드가 기본적으로 Map을 객체로 변환하지 않기 때문에 flattenMaps 옵션이 기본적으로 true로 설정된다.
+     * toObject() 메서드 호출 시 flattenMaps 옵션이 기본적으로 false로 설정된다.
      *
-     * flattenMaps 옵셥은 JavaScript의 Map을 일반 객체로 변환할지 여부를 지정한다.
-     * true로 설정하면 Map을 일반 객체로 변환된다. 즉, Map의 키와 값이 객체의 속성(key)과 속성 값(value)으로 변환된다.
+     * flattenMaps 옵셥은 JavaScript의 Map을 POJO로 변환할지 여부를 지정한다.
+     * true로 설정하면 Map을 POJO로 변환한다. 즉, Map의 키와 값이 객체의 속성(key)과 속성 값(value)으로 변환된다.
      * false로 설정하면 Map이 그대로 유지된다.
+     *
+     * MVC 패턴 관점에서 보면 모델에서 뷰의 논리를 작성하는 것은 적합하지 않다.
+     * 왜냐하면 뷰가 출력과 관련되어 있기 때문이다.
      */
     toJSON: {
       virtuals: true,
@@ -155,11 +184,11 @@ const tourSchema = new mongoose.Schema(
        * 결과 객체를 변환해야 할 수도 있다. 예를 들어, 민감한 정보를 제거하거나 사용자 정의 객체를 반환해야 할 때가 있다.
        * 이 경우 선택적인 변환 함수를 설정한다.
        */
-      transform(document, result) {
-        delete result._id;
+      transform(document, pojo) {
+        delete pojo._id;
       },
     },
-    /* 도큐먼트를 일반 객체(POJO)로 변환한다. */
+    /* 도큐먼트를 일반 JavaScript 객체(POJO)로 변환한다. */
     toObject: { virtuals: true, versionKey: false },
   },
 );
@@ -185,6 +214,14 @@ tourSchema.virtual('durationWeek').get(function () {
  *
  * pre는 이벤트 이전에 발생하는 미들웨어이다. post는 이벤트 이후에 발생하는 미들웨어이다.
  */
+
+// tourSchema.pre('save', function (next) {
+//   const promise = this.guides.map((guide) => await User.findById(guide));
+//   this.guides = await Promise.all(promise);
+
+//   next();
+// });
+
 // tourSchema.pre('save', function (next) {
 //   /* this 예약어는 도큐먼트를 가리킨다. */
 //   this.slug = slugify(this.name!, { lower: true });

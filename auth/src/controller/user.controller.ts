@@ -8,29 +8,27 @@ import {
   Code,
   CookieUtil,
   EmailMessage,
+  EmailSendError,
   EmailUtil,
   JwtPayload,
   JwtUtil,
   QueryBuilder,
   QueryRequest,
   RequestWithUser,
+  User,
+  UserNotFoundError,
+  UserRepository,
+  UserRole,
+  authenticationMiddleware,
+  authorizationMiddleware,
   catchAsync,
   fieldFilter,
   validationMiddleware,
 } from '@whooatour/common';
 
-import {
-  authenticationMiddleware,
-  authorizeMiddleware,
-} from '../auth.middleware';
-import { UserRole } from '../enum/user-role.enum';
-import { UserNotFoundError } from '../error/user-not-found.error';
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
-import { EmailSendError } from '../error/email-send.error';
 import { SamePasswordError } from '../error/same-password.error';
 import { InvalidApiError } from '../error/invalid-api.error';
-import { User } from '../model/user.model';
-import { UserRepository } from '../repository/user.repository';
 import { UserValidator } from '../util/user-validator';
 
 export class UserController extends AbstractController {
@@ -46,21 +44,14 @@ export class UserController extends AbstractController {
 
   private initializeRoutes = (): void => {
     this.router
-      .route(this.path)
-      .get(
-        authenticationMiddleware,
-        authorizeMiddleware(UserRole.Admin),
-        this.getUsers,
-      )
-      .post(...validationMiddleware(UserValidator.create()), this.createUser)
-      .patch(authenticationMiddleware, this.updateUser)
-      .delete(authenticationMiddleware, this.deleteUser);
+      .route(`${this.path}/me`)
+      .get(authenticationMiddleware, this.getMe);
 
     this.router
       .route(`${this.path}/:id`)
       .get(
         authenticationMiddleware,
-        authorizeMiddleware(UserRole.Admin),
+        authorizationMiddleware(UserRole.Admin),
         this.getUser,
       );
 
@@ -75,6 +66,17 @@ export class UserController extends AbstractController {
     this.router
       .route(`${this.path}/reset-password/:token`)
       .patch(authenticationMiddleware, this.resetPassword);
+
+    this.router
+      .route(this.path)
+      .get(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.getUsers,
+      )
+      .post(...validationMiddleware(UserValidator.create()), this.createUser)
+      .patch(authenticationMiddleware, this.updateUser)
+      .delete(authenticationMiddleware, this.deleteUser);
 
     // this.router.all('*', this.handleRoutes);
   };
@@ -93,6 +95,61 @@ export class UserController extends AbstractController {
 
     next(error);
   };
+
+  private createUser = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.create({
+        name: request.body.name,
+        email: request.body.email,
+        password: request.body.password,
+        photo: request.body.photo,
+        role: request.body.role,
+        ...request.body, // TODO: 코드 개선
+      });
+
+      const success = ApiResponse.handleSuccess(
+        Code.CREATED.code,
+        Code.CREATED.message,
+        user,
+        '사용자를 생성했습니다.',
+      );
+
+      response.status(Code.CREATED.code).json(success);
+    },
+  );
+
+  private getMe = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.find({ _id: request.user?.id });
+
+      if (!user) {
+        return next(
+          new UserNotFoundError(
+            Code.NOT_FOUND,
+            '사용자가 존재하지 않습니다.',
+            true,
+          ),
+        );
+      }
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '사용자를 찾았습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
 
   private getUser = catchAsync(
     async (
@@ -151,32 +208,6 @@ export class UserController extends AbstractController {
     },
   );
 
-  private createUser = catchAsync(
-    async (
-      request: Request,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      const user = await this.repository.create({
-        name: request.body.name,
-        email: request.body.email,
-        password: request.body.password,
-        photo: request.body.photo,
-        role: request.body.role,
-        ...request.body, // TODO: 코드 개선
-      });
-
-      const success = ApiResponse.handleSuccess(
-        Code.CREATED.code,
-        Code.CREATED.message,
-        user,
-        '사용자를 생성했습니다.',
-      );
-
-      response.status(Code.CREATED.code).json(success);
-    },
-  );
-
   private updateUser = catchAsync(
     async (
       request: RequestWithUser,
@@ -211,29 +242,6 @@ export class UserController extends AbstractController {
         '사용자를 갱신했습니다.',
       );
 
-      response.status(Code.OK.code).json(success);
-    },
-  );
-
-  private deleteUser = catchAsync(
-    async (
-      request: RequestWithUser,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      await this.repository.update(
-        { _id: request.user?.id },
-        { active: false },
-      );
-
-      const success = ApiResponse.handleSuccess(
-        Code.NO_CONTENT.code,
-        Code.NO_CONTENT.message,
-        null,
-        '사용자를 삭제했습니다.',
-      );
-
-      // TODO: 204일 경우 데이터 전송이 안된다.
       response.status(Code.OK.code).json(success);
     },
   );
@@ -300,7 +308,7 @@ export class UserController extends AbstractController {
         process.env.JWT_REFRESH_EXPIRATION,
       );
 
-      const cookieAccess = CookieUtil.build(
+      const cookieAccess = CookieUtil.set(
         'AccessToken',
         jwtAccess,
         true,
@@ -309,7 +317,7 @@ export class UserController extends AbstractController {
         '/',
         process.env.NODE_ENV === 'production' ? true : false,
       );
-      const cookieRefresh = CookieUtil.build(
+      const cookieRefresh = CookieUtil.set(
         'RefreshToken',
         jwtRefresh,
         true,
@@ -333,7 +341,7 @@ export class UserController extends AbstractController {
     },
   );
 
-  // TODO: 이메일 일치 여부.
+  // TODO: 이메일 일치 여부 확인, 하지만 운영 환경에서는 이메일 계정으로 전달하는데 굳이?
   private forgetPassword = catchAsync(
     async (
       request: Request,
@@ -453,7 +461,7 @@ export class UserController extends AbstractController {
         process.env.JWT_REFRESH_EXPIRATION,
       );
 
-      const cookieAccess = CookieUtil.build(
+      const cookieAccess = CookieUtil.set(
         'AccessToken',
         jwtAccess,
         true,
@@ -462,7 +470,7 @@ export class UserController extends AbstractController {
         '/',
         process.env.NODE_ENV === 'production' ? true : false,
       );
-      const cookieRefresh = CookieUtil.build(
+      const cookieRefresh = CookieUtil.set(
         'RefreshToken',
         jwtRefresh,
         true,
@@ -484,6 +492,29 @@ export class UserController extends AbstractController {
         .status(Code.OK.code)
         .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
         .json(success);
+    },
+  );
+
+  private deleteUser = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      await this.repository.update(
+        { _id: request.user?.id },
+        { active: false },
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        null,
+        '사용자를 삭제했습니다.',
+      );
+
+      // TODO: 204일 경우 데이터 전송이 안된다.
+      response.status(Code.OK.code).json(success);
     },
   );
 }
