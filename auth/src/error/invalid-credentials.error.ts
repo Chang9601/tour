@@ -2,10 +2,10 @@ import { AbstractError, CodeAttr } from '@whooatour/common';
 
 export class InvalidCredentialsError extends AbstractError {
   constructor(
-    public readonly codeAttr: CodeAttr,
+    public readonly code: CodeAttr,
     public readonly detail: string | string[],
     public readonly isOperational: boolean,
   ) {
-    super(codeAttr, detail, isOperational);
+    super(code, detail, isOperational);
   }
 }

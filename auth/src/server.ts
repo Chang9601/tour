@@ -20,6 +20,7 @@ validateEnv();
 
 const app = new App(
   [new AuthController(), new UserController()],
+  process.env.HOST,
   process.env.PORT,
   process.env.MONGO_URI,
 );
