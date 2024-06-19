@@ -16,18 +16,11 @@ import { AbstractController, errorMiddleware } from '@whooatour/common';
 // TODO: AbstractApplication 생성 다음 상속.
 export class App {
   private readonly app: express.Application;
-  private readonly host: string;
   private readonly port: number;
   private readonly uri: string;
 
-  constructor(
-    controllers: AbstractController[],
-    host: string,
-    port: number,
-    uri: string,
-  ) {
+  constructor(controllers: AbstractController[], port: number, uri: string) {
     this.app = express();
-    this.host = host;
     this.port = port;
     this.uri = uri;
 
@@ -38,8 +31,8 @@ export class App {
   }
 
   public listen(): Server {
-    const server = this.app.listen(this.port, this.host, () => {
-      console.log(`호스트 ${this.host} 포트 ${this.port}에서 서버 실행 중.`);
+    const server = this.app.listen(this.port, () => {
+      console.log(`포트 ${this.port}에서 서버 실행 중.`);
     });
     return server;
   }

@@ -26,7 +26,7 @@ services:
     ports:
       - '3001:3001'
     volumes:
-      - ./auth:/opt/express_app/app
+      - ./tour:/opt/express_app/app
     depends_on:
       mongo:
         condition: service_healthy
