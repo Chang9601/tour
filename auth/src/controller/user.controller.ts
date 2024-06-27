@@ -44,16 +44,16 @@ export class UserController extends AbstractController {
 
   private initializeRoutes = (): void => {
     this.router
+      .route(`${this.path}/me`)
+      .get(authenticationMiddleware, this.getMe);
+
+    this.router
       .route(`${this.path}/:id`)
       .get(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
         this.getUser,
       );
-
-    this.router
-      .route(`${this.path}/me`)
-      .get(authenticationMiddleware, this.getMe);
 
     this.router
       .route(`${this.path}/forget-password`)
@@ -66,6 +66,10 @@ export class UserController extends AbstractController {
     this.router
       .route(`${this.path}/update-password`)
       .patch(authenticationMiddleware, this.updatePassword);
+
+    // this.router
+    //   .route(`${this.path}/create`)
+    //   .post(...validationMiddleware(UserValidator.create()), this.createUser);
 
     this.router
       .route(this.path)
@@ -82,19 +86,19 @@ export class UserController extends AbstractController {
   };
 
   // TODO: 추상 컨트롤러에서 구현.
-  private handleRoutes = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ) => {
-    const error = {
-      codeAttr: Code.NOT_FOUND,
-      detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-      isOperational: true,
-    };
+  // private handleRoutes = async (
+  //   request: Request,
+  //   response: Response,
+  //   next: NextFunction,
+  // ) => {
+  //   const error = {
+  //     codeAttr: Code.NOT_FOUND,
+  //     detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+  //     isOperational: true,
+  //   };
 
-    next(error);
-  };
+  //   next(error);
+  // };
 
   private createUser = catchAsync(
     async (

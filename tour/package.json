@@ -4,6 +4,7 @@
   "description": "ExpressJS, MongoDB와 마이크로서비스 구조를 사용한 여행 예약 서비스의 예약 모듈",
   "main": "app.js",
   "scripts": {
+    "build": "tsc",
     "start:dev": "ts-node src/server.ts",
     "start:prod": "NODE_ENV=production ts-node src/server.ts",
     "debug": "ndb server.ts"

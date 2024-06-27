@@ -12,3 +12,7 @@ build:
       context: auth
       docker:
         dockerfile: Dockerfile
+    - image: csup96/tour-tour
+      context: tour
+      docker:
+        dockerfile: Dockerfile

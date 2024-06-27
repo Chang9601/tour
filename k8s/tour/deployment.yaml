@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auth
+  name: tour
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: auth
+      app: tour
   template:
     metadata:
       labels:
-        app: auth
+        app: tour
     spec:
       containers:
-        - name: auth
-          image: csup96/tour-auth
+        - name: tour
+          image: csup96/tour-tour

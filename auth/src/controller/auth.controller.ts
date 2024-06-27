@@ -35,19 +35,19 @@ export class AuthController extends AbstractController {
     // this.router.all('*', this.handleRoutes);
   };
 
-  private handleRoutes = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ) => {
-    const error = {
-      codeAttr: Code.NOT_FOUND,
-      detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-      isOperational: true,
-    };
+  // private handleRoutes = async (
+  //   request: Request,
+  //   response: Response,
+  //   next: NextFunction,
+  // ) => {
+  //   const error = {
+  //     codeAttr: Code.NOT_FOUND,
+  //     detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+  //     isOperational: true,
+  //   };
 
-    next(error);
-  };
+  //   next(error);
+  // };
 
   private signIn = catchAsync(
     async (

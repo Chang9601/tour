@@ -1,5 +1,5 @@
 import mongoose, { Types } from 'mongoose';
-import slugify from 'slugify';
+//import slugify from 'slugify';
 
 /*
  * 여행 인스턴스가 가지는 속성을 기술하는 인터페이스.

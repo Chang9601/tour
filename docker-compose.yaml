@@ -41,8 +41,8 @@ services:
     environment:
       # 다음 환경변수는 관리자(admin) 데이터베이스에 사용자를 생성한다.
       # 연결 문자열을 사용할 때 retryWrites=true&writeConcern=majority&authSource=admin을 추가해야 한다.
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=root
+      - MONGO_INITDB_ROOT_USERNAME: root
+      - MONGO_INITDB_ROOT_PASSWORD: root
     volumes:
       - mongodb:/data/db
     healthcheck:

@@ -15,12 +15,12 @@ import { AbstractController, errorMiddleware } from '@whooatour/common';
 
 // TODO: AbstractApplication 생성 다음 상속.
 export class App {
-  private readonly app: express.Application;
+  public readonly express: express.Application;
   private readonly port: number;
   private readonly uri: string;
 
   constructor(controllers: AbstractController[], port: number, uri: string) {
-    this.app = express();
+    this.express = express();
     this.port = port;
     this.uri = uri;
 
@@ -31,15 +31,19 @@ export class App {
   }
 
   public listen(): Server {
-    const server = this.app.listen(this.port, () => {
+    const server = this.express.listen(this.port, () => {
       console.log(`포트 ${this.port}에서 서버 실행 중.`);
     });
     return server;
   }
 
   private initializeMiddlewares(): void {
+    // TODO: Kubernetes 및 express-rate-limit 패키지 오류 해결
+    // https://github.com/express-rate-limit/express-rate-limit/wiki/Troubleshooting-Proxy-Issues
+    // this.express.set('trust proxy', true);
+
     /* 보안 HTTP 헤더를 설정한다. */
-    this.app.use(helmet());
+    this.express.use(helmet());
 
     /*
      * 1시간에 동일 IP 주소에서 100개의 요청을 허용한다.
@@ -54,24 +58,24 @@ export class App {
     });
 
     /* /api로 시작하는 URL에만 제한기를 적용한다. */
-    this.app.use('/api', limiter);
+    this.express.use('/api', limiter);
 
-    this.app.use(bodyParser.json());
+    this.express.use(bodyParser.json());
 
     /*
      * NoSQL 쿼리 주입 공격에 대비한 데이터 위생처리를 적용한다.
      * 본문, 쿼리 문자열 그리고 경로 매개변수를 확인하여 모든 달러 기호와 점을 걸러낸다.
      */
-    this.app.use(mongoSanitize());
+    this.express.use(mongoSanitize());
 
     /*
      * XSS 공격에 대비한 데이터 위생처리를 적용한다.
      * 사용자 입력에서 악성 HTML 코드를 제거한다. 즉, HTML 기호를 변환하여 XSS 공격을 방지한다.
      */
-    this.app.use(xss());
+    this.express.use(xss());
 
     /* 매개변수 오염을 방지한다. */
-    this.app.use(
+    this.express.use(
       hpp({
         /* 쿼리 문자열에서 중복을 허용하는 화이트 리스트 */
         whitelist: ['name'],
@@ -89,16 +93,16 @@ export class App {
      * signed 옵션을 true 로 설정 시 쿠키 뒤에 서명이 붙는다.
      * 서버에서 만든 쿠키임을 검증할 수 있으므로 대부분의 경우 서명 옵션을 활성화하는 것이 좋다.
      */
-    this.app.use(cookieParser());
+    this.express.use(cookieParser());
     if (process.env.NODE_ENV === 'development') {
-      this.app.use(morgan('dev'));
+      this.express.use(morgan('dev'));
     }
   }
 
   // TODO: 404 페이지 경로는 하나로 합치기.
   private initializeControllers(controllers: AbstractController[]): void {
     controllers.forEach((controller) => {
-      this.app.use(controller.router);
+      this.express.use(controller.router);
     });
   }
 
@@ -107,6 +111,6 @@ export class App {
   }
 
   private initializeErrorHandler(): void {
-    this.app.use(errorMiddleware);
+    this.express.use(errorMiddleware);
   }
 }
