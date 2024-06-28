@@ -10,12 +10,12 @@ import { AbstractController, errorMiddleware } from '@whooatour/common';
 
 // TODO: AbstractApplication 생성 다음 상속.
 export class App {
-  private readonly app: express.Application;
+  public readonly express: express.Application;
   private readonly port: number;
   private readonly uri: string;
 
   constructor(controllers: AbstractController[], port: number, uri: string) {
-    this.app = express();
+    this.express = express();
     this.port = port;
     this.uri = uri;
 
@@ -26,7 +26,7 @@ export class App {
   }
 
   public listen(): Server {
-    const server = this.app.listen(this.port, () => {
+    const server = this.express.listen(this.port, () => {
       console.log(`포트 ${this.port}에서 서버 실행 중.`);
     });
 
@@ -45,7 +45,7 @@ export class App {
    * 요청-응답 주기.
    * 요청 -> 미들웨어 스택의 모든 미들웨어 -> 응답
    *
-   * 미들웨어를 사용하기 위해 app.use() 함수를 사용한다.
+   * 미들웨어를 사용하기 위해 express.use() 함수를 사용한다.
    */
   private initializeMiddlewares(): void {
     /*
@@ -68,9 +68,9 @@ export class App {
      * JSON 형식인 { name: ‘assu’, age: 30 } 으로 본문을 보내면 req.body에 그대로 들어간다.
      * URL-encoded 형식인 name=assu&age=30 으로 본문을 보내면 req.body에 { name: ‘assu’, age: 30 }으로 들어간다.
      */
-    this.app.use(bodyParser.json());
+    this.express.use(bodyParser.json());
 
-    this.app.use(
+    this.express.use(
       hpp({
         whitelist: [
           'duration',
@@ -88,13 +88,13 @@ export class App {
        * morgan 모듈은 요청과 응답에 대한 정보를 콘솔에 기록하는 미들웨어이다.
        * 개발 환경에서는 dev, 배포 환경에서는 combined를 사용한다.
        */
-      this.app.use(morgan('dev'));
+      this.express.use(morgan('dev'));
     }
   }
 
   private initializeControllers(controllers: AbstractController[]): void {
     controllers.forEach((controller) => {
-      this.app.use(controller.router);
+      this.express.use(controller.router);
     });
   }
 
@@ -103,6 +103,6 @@ export class App {
   }
 
   private initializeErrorHandler(): void {
-    this.app.use(errorMiddleware);
+    this.express.use(errorMiddleware);
   }
 }

@@ -7,14 +7,6 @@ declare global {
       NODE_ENV: string;
       PORT: number;
       MONGO_URI: string;
-
-      COOKIE_ACCESS_EXPIRATION: number;
-      COOKIE_REFRESH_EXPIRATION: number;
-
-      JWT_ACCESS_SECRET: string;
-      JWT_REFRESH_SECRET: string;
-      JWT_ACCESS_EXPIRATION: string;
-      JWT_REFRESH_EXPIRATION: string;
     }
   }
 }
@@ -28,14 +20,6 @@ beforeAll(async () => {
   process.env.NODE_ENV = 'development';
   process.env.PORT = 3000;
   process.env.MONGO_URI = uri;
-
-  process.env.COOKIE_ACCESS_EXPIRATION = 1;
-  process.env.COOKIE_REFRESH_EXPIRATION = 30;
-
-  process.env.JWT_ACCESS_SECRET = 'tour-jwt-access';
-  process.env.JWT_ACCESS_EXPIRATION = '1h';
-  process.env.JWT_REFRESH_SECRET = 'tour-jwt-refresh';
-  process.env.JWT_REFRESH_EXPIRATION = '30d';
 
   await mongoose.connect(uri, {});
 });

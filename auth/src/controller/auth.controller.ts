@@ -68,6 +68,7 @@ export class AuthController extends AbstractController {
       }
 
       const user = await this.repository.find({ email });
+
       if (!user || !(await user.matchPassword(password, user.password))) {
         return next(
           new InvalidCredentialsError(

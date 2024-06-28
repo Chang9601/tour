@@ -111,5 +111,5 @@
   "ts-node": { "files": true },
   /* beforeAll을 찾을 수 없다는 오류가 발생해서 test 디렉터리를 추가한다. */
   "include": ["src/**/*.ts", "test/**/*.ts", "env.d.ts"],
-  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts"]
+  "exclude": ["node_modules", "**/*.test.ts"]
 }
