@@ -19,8 +19,8 @@ describe('인증 API 테스트', () => {
 
   beforeEach(async () => {
     user = {
-      name: '이창섭',
-      email: 'changsup96@naver.com',
+      name: '톨스토이',
+      email: 'tolstoy@naver.com',
       password: '12341234aA!',
       passwordConfirm: '12341234aA!',
       photo: 'me.jpg',
@@ -48,7 +48,7 @@ describe('인증 API 테스트', () => {
     });
 
     it('잘못된 이메일로 로그인에 실패해야 한다.', async () => {
-      credentials.email = 'changsup@naver.com';
+      credentials.email = 'camus@naver.com';
 
       await request(app.express).post('/api/v1/users').send(user).expect(201);
       await request(app.express)
