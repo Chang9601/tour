@@ -29,7 +29,7 @@ WORKDIR /opt/express_app/app
 # 개발 환경은 바인드 마운트를 할 것이기 때문에 COPY를 생략한다.
 # COPY --chown=node:node . .
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]
 
 
 FROM base AS source
@@ -51,4 +51,4 @@ RUN npm run build
 
 USER node
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]

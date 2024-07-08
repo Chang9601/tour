@@ -1,4 +1,4 @@
-appVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nats
@@ -24,6 +24,8 @@ spec:
               '-hbi',
               '5s',
               '-hbt',
+              '5s',
+              '-hbf',
               '2',
               '-SD',
               '-cid',

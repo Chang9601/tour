@@ -39,7 +39,7 @@ describe('여행 API 테스트', () => {
         .expect(201);
     });
 
-    it('권한이 없어 실패해야 한다.', async () => {
+    it('인증되지 않아서 실패해야 한다.', async () => {
       await request(tourApplication.app)
         .post('/api/v1/tours')
         .send(tour)
@@ -146,7 +146,7 @@ describe('여행 API 테스트', () => {
     });
   });
 
-  describe('갱신', () => {
+  describe('수정', () => {
     it('성공해야 한다.', async () => {
       const cookie = global.signIn();
 
@@ -175,7 +175,7 @@ describe('여행 API 테스트', () => {
         .expect(404);
     });
 
-    it('권한이 없어 실패해야 한다.', async () => {
+    it('인증되지 않아서 실패해야 한다.', async () => {
       const createTourResponse = await request(tourApplication.app)
         .post('/api/v1/tours')
         .set('Cookie', [global.signIn()])
@@ -270,7 +270,7 @@ describe('여행 API 테스트', () => {
         .expect(404);
     });
 
-    it('권한이 없어 실패해야 한다.', async () => {
+    it('인증되지 않아서 실패해야 한다.', async () => {
       const createTourResponse = await request(tourApplication.app)
         .post('/api/v1/tours')
         .set('Cookie', [global.signIn()])

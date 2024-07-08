@@ -24,12 +24,15 @@ import {
   catchAsync,
   fieldFilter,
   validationMiddleware,
+  multerInstance,
 } from '@whooatour/common';
 
+import { InvalidApiError } from '../error/invalid-api.error';
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 import { SamePasswordError } from '../error/same-password.error';
-import { InvalidApiError } from '../error/invalid-api.error';
 import { UserValidator } from '../util/user-validator';
+
+multerInstance.initialize(process.env.IMAGE_DIRECTORY_PATH, 'user', 'image');
 
 export class UserController implements CoreController {
   public readonly path = '/api/v1/users';
@@ -40,6 +43,7 @@ export class UserController implements CoreController {
     this.initializeRoutes();
   }
 
+  // TODO: 인증 미들웨어 간소화.
   public initializeRoutes = (): void => {
     this.router
       .route(`${this.path}/me`)
@@ -80,6 +84,8 @@ export class UserController implements CoreController {
       .patch(
         authenticationMiddleware,
         ...validationMiddleware(UserValidator.update()),
+        this.uploadPhoto,
+        // this.resizePhoto,
         this.updateUser,
       )
       .post(...validationMiddleware(UserValidator.create()), this.createUser);
@@ -137,7 +143,7 @@ export class UserController implements CoreController {
     ): Promise<void> => {
       await this.repository.update(
         { _id: request.user?.id },
-        { active: false },
+        { active: false, deletedAt: Date.now() },
       );
 
       const success = ApiResponse.handleSuccess(
@@ -175,7 +181,7 @@ export class UserController implements CoreController {
       /* 2. 비밀번호 재설정 토큰을 생성한다. */
       const passwordResetToken = user.createPasswordResetToken();
       /* createPasswordResetToken() 메서드에서 데이터를 수정만 했다.
-       * 데이터베이스에 갱신하려면 저장해야 한다.
+       * 데이터베이스에 수정하려면 저장해야 한다.
        * validateBeforeSave 옵션은 스키마에 지정한 모든 유효성 검사를 비활성화한다.
        */
       await user.save({ validateBeforeSave: false });
@@ -307,6 +313,8 @@ export class UserController implements CoreController {
     },
   );
 
+  //private processPhoto = catchAsync(async(request: RequestWithUser, response: Response, next: NextFunction))
+
   private resetPassword = catchAsync(
     async (
       request: Request,
@@ -339,12 +347,12 @@ export class UserController implements CoreController {
       user.passwordResetToken = user.passwordResetTokenExpiration = undefined;
 
       /*
-       * 갱신 시 여행(findOneAnddUpdate() 메서드)과 달리  save() 메서드를 사용한다.
+       * 수정 시 여행(findOneAnddUpdate() 메서드)과 달리  save() 메서드를 사용한다.
        * 유효성 검사와 비밀번호 암호화(e.g., 미들웨어)와 같은 작업을 실행해야 하기 때문이다.
        */
       await user.save();
 
-      /* 3. 비밀번호 변경 타임스탬프 필드를 갱신한다. */
+      /* 3. 비밀번호 변경 타임스탬프 필드를 수정한다. */
       const payload: JwtPayload = { id: user._id };
 
       const jwtAccess = JwtUtil.issue(
@@ -392,6 +400,29 @@ export class UserController implements CoreController {
     },
   );
 
+  // ERROR: NodeJS 버전 업그레이드 필요.
+  // private resizePhoto = catchAsync(
+  //   async (
+  //     request: RequestWithUser,
+  //     response: Response,
+  //     next: NextFunction,
+  //   ): Promise<void> => {
+  //     if (!request.file) {
+  //       return next();
+  //     }
+
+  //     const filename = `user-${request.user?.id}-${Date.now()}.jpeg`;
+
+  //     await sharp(request.file.buffer)
+  //       .resize(500, 500)
+  //       .toFormat('jpeg')
+  //       .jpeg({ quality: 90 })
+  //       .toFile(`public/image/users/${filename}`);
+  //
+  //     next();
+  //   },
+  // );
+
   private updatePassword = catchAsync(
     async (
       request: RequestWithUser,
@@ -436,7 +467,7 @@ export class UserController implements CoreController {
         );
       }
 
-      /* 4. 비밀번호를 갱신한다. */
+      /* 4. 비밀번호를 수정한다. */
       user.password = newPassword;
       await user.save();
 
@@ -505,9 +536,12 @@ export class UserController implements CoreController {
       }
 
       /* 2. 필요없는 필드를 여과한다. */
-      const field = fieldFilter(request.body, 'name', 'email', 'photo');
+      const field = fieldFilter(request.body, 'name', 'email');
+      if (request.file) {
+        field.photo = request.file.filename;
+      }
 
-      /* 3. 사용자를 갱신한다. */
+      /* 3. 사용자를 수정한다. */
       // TODO: 더 간단한 방법?
       const user = await this.repository.update(
         { _id: request.user?.id },
@@ -518,10 +552,12 @@ export class UserController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         user,
-        '사용자를 갱신했습니다.',
+        '사용자를 수정했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
     },
   );
+
+  private uploadPhoto = multerInstance.multer.single('photo');
 }

@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-mongo
+  template:
+    metadata:
+      labels:
+        app: review-mongo
+    spec:
+      containers:
+        - name: review-mongo
+          image: mongo:7.0.9

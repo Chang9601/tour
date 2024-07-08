@@ -118,6 +118,63 @@ describe('사용자 API 테스트', () => {
     });
   });
 
+  describe('목록 조회', () => {
+    it('성공해야 한다.', async () => {
+      await request(authApplication.app)
+        .post('/api/v1/users')
+        .send(admin)
+        .expect(201);
+      await request(authApplication.app)
+        .post('/api/v1/users')
+        .send(user)
+        .expect(201);
+
+      credentials.email = admin.email;
+      credentials.password = admin.password;
+
+      const signInResponse = await request(authApplication.app)
+        .post('/api/v1/auth/sign-in')
+        .send(credentials)
+        .expect(200);
+
+      const cookies = signInResponse.get('Set-Cookie')!;
+
+      expect(cookies).toBeDefined();
+
+      const getUsersReponse = await request(authApplication.app)
+        .get('/api/v1/users')
+        .set('Cookie', cookies)
+        .expect(200);
+
+      expect(getUsersReponse.body.data.length).toBe(2);
+    });
+
+    it('권한이 없어 실패해야 한다.', async () => {
+      await request(authApplication.app)
+        .post('/api/v1/users')
+        .send(admin)
+        .expect(201);
+      await request(authApplication.app)
+        .post('/api/v1/users')
+        .send(user)
+        .expect(201);
+
+      const signInResponse = await request(authApplication.app)
+        .post('/api/v1/auth/sign-in')
+        .send(credentials)
+        .expect(200);
+
+      const cookies = signInResponse.get('Set-Cookie')!;
+
+      expect(cookies).toBeDefined();
+
+      await request(authApplication.app)
+        .get('/api/v1/users')
+        .set('Cookie', cookies)
+        .expect(403);
+    });
+  });
+
   describe('조회', () => {
     it('성공해야 한다.', async () => {
       await request(authApplication.app)
@@ -202,64 +259,7 @@ describe('사용자 API 테스트', () => {
     });
   });
 
-  describe('목록 조회', () => {
-    it('성공해야 한다.', async () => {
-      await request(authApplication.app)
-        .post('/api/v1/users')
-        .send(admin)
-        .expect(201);
-      await request(authApplication.app)
-        .post('/api/v1/users')
-        .send(user)
-        .expect(201);
-
-      credentials.email = admin.email;
-      credentials.password = admin.password;
-
-      const signInResponse = await request(authApplication.app)
-        .post('/api/v1/auth/sign-in')
-        .send(credentials)
-        .expect(200);
-
-      const cookies = signInResponse.get('Set-Cookie')!;
-
-      expect(cookies).toBeDefined();
-
-      const getUsersReponse = await request(authApplication.app)
-        .get('/api/v1/users')
-        .set('Cookie', cookies)
-        .expect(200);
-
-      expect(getUsersReponse.body.data.length).toBe(2);
-    });
-
-    it('권한이 없어 실패해야 한다.', async () => {
-      await request(authApplication.app)
-        .post('/api/v1/users')
-        .send(admin)
-        .expect(201);
-      await request(authApplication.app)
-        .post('/api/v1/users')
-        .send(user)
-        .expect(201);
-
-      const signInResponse = await request(authApplication.app)
-        .post('/api/v1/auth/sign-in')
-        .send(credentials)
-        .expect(200);
-
-      const cookies = signInResponse.get('Set-Cookie')!;
-
-      expect(cookies).toBeDefined();
-
-      await request(authApplication.app)
-        .get('/api/v1/users')
-        .set('Cookie', cookies)
-        .expect(403);
-    });
-  });
-
-  describe('갱신', () => {
+  describe('수정', () => {
     it('성공해야 한다.', async () => {
       await request(authApplication.app)
         .post('/api/v1/users')
@@ -338,7 +338,7 @@ describe('사용자 API 테스트', () => {
         .expect(400);
     });
 
-    it('비밀번호를 갱신하려고 하여 실패해야 한다.', async () => {
+    it('비밀번호를 수정하려고 하여 실패해야 한다.', async () => {
       await request(authApplication.app)
         .post('/api/v1/users')
         .send(user)
@@ -367,7 +367,7 @@ describe('사용자 API 테스트', () => {
     });
   });
 
-  describe('비밀번호 갱신', () => {
+  describe('비밀번호 수정', () => {
     it('성공해야 한다.', async () => {
       await request(authApplication.app)
         .post('/api/v1/users')
