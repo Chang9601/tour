@@ -6,13 +6,15 @@ export function validateEnv() {
     PORT: port(),
     MONGO_URI: str(),
 
+    COOKIE_ACCESS_EXPIRATION: num(),
+    COOKIE_REFRESH_EXPIRATION: num(),
+
     JWT_ACCESS_SECRET: str(),
     JWT_ACCESS_EXPIRATION: str(),
     JWT_REFRESH_SECRET: str(),
     JWT_REFRESH_EXPIRATION: str(),
 
-    COOKIE_ACCESS_EXPIRATION: num(),
-    COOKIE_REFRESH_EXPIRATION: num(),
+    IMAGE_DIRECTORY_PATH: str(),
 
     NODEMAILER_HOST: host(),
     NODEMAILER_PORT: port(),

@@ -13,10 +13,16 @@ declare global {
       JWT_REFRESH_SECRET: string;
       JWT_REFRESH_EXPIRATION: string;
 
+      IMAGE_DIRECTORY_PATH: string;
+
       NODEMAILER_HOST: string;
       NODEMAILER_PORT: number;
       NODEMAILER_USER: string;
       NODEMAILER_PASS: string;
+
+      NATS_URL: string;
+      NATS_CLUSTER_ID: string;
+      NATS_CLIENT_ID: string;
     }
   }
 }

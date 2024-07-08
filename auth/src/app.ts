@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { Server } from 'http';
 
 import bodyParser from 'body-parser';
@@ -27,6 +28,7 @@ export class AuthApplication implements CoreApplication {
     this.port = port;
     this.uri = uri;
 
+    this.makeDirectory();
     this.connectToDatabase();
     this.initializeMiddlewares();
     this.initializeControllers(controllers);
@@ -35,13 +37,19 @@ export class AuthApplication implements CoreApplication {
 
   public listen(): Server {
     const server = this.app.listen(this.port, () => {
-      console.log(`포트 ${this.port}에서 서버 실행 중.`);
+      console.log(`포트 ${this.port}에서 서버가 실행 중입니다.`);
     });
     return server;
   }
 
-  public connectToDatabase(): void {
-    mongoose.connect(this.uri);
+  public async connectToMessagingSystem(): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+
+  public async connectToDatabase(): Promise<void> {
+    await mongoose.connect(this.uri);
+
+    console.log('MongoDB에 연결되었습니다.');
   }
 
   public initializeMiddlewares(): void {
@@ -67,8 +75,6 @@ export class AuthApplication implements CoreApplication {
     /* /api로 시작하는 URL에만 제한기를 적용한다. */
     this.app.use('/api', limiter);
 
-    this.app.use(bodyParser.json());
-
     /*
      * NoSQL 쿼리 주입 공격에 대비한 데이터 위생처리를 적용한다.
      * 본문, 쿼리 문자열 그리고 경로 매개변수를 확인하여 모든 달러 기호와 점을 걸러낸다.
@@ -89,6 +95,7 @@ export class AuthApplication implements CoreApplication {
       }),
     );
 
+    this.app.use(bodyParser.json());
     /*
      * cookie-parser 모듈은 요청에 있는 쿠키를 해석하여 req.cookies 객체로 만드는 미들웨어이다.
      * 유효기간이 지난 쿠키는 자동으로 거른다.
@@ -116,5 +123,12 @@ export class AuthApplication implements CoreApplication {
 
   public initializeErrorHandler(): void {
     this.app.use(errorMiddleware);
+  }
+
+  public makeDirectory(): void {
+    if (!fs.existsSync(process.env.IMAGE_DIRECTORY_PATH)) {
+      console.error('사용자 이미지 디렉터리가 존재하지 않으므로 생성합니다.');
+      fs.mkdirSync(process.env.IMAGE_DIRECTORY_PATH, { recursive: true });
+    }
   }
 }

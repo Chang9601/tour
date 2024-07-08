@@ -20,6 +20,8 @@ declare global {
   var signIn: () => string;
 }
 
+jest.mock('./mock/nats-instance');
+
 let mongo: MongoMemoryServer;
 
 beforeAll(async () => {
@@ -61,7 +63,7 @@ global.signIn = () => {
     process.env.JWT_ACCESS_EXPIRATION,
   );
 
-  /* 쿠키를 생성하고 반환한다..  */
+  /* 쿠키를 생성하고 반환한다. */
   const cookie = CookieUtil.set(
     'AccessToken',
     jwt,

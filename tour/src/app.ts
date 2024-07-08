@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { Server } from 'http';
 
 import bodyParser from 'body-parser';
@@ -11,9 +12,11 @@ import {
   CoreController,
   CoreApplication,
   errorMiddleware,
+  //natsInstance,
 } from '@whooatour/common';
 
-// TODO: AbstractApplication 생성 다음 상속.
+//import { ReviewCreatedSubscriber } from './event/listener/review-created-subscriber';
+
 export class TourApplication implements CoreApplication {
   public readonly app: express.Application;
   public readonly port: number;
@@ -24,6 +27,8 @@ export class TourApplication implements CoreApplication {
     this.port = port;
     this.uri = uri;
 
+    this.makeDirectory();
+    this.connectToMessagingSystem();
     this.connectToDatabase();
     this.initializeMiddlewares();
     this.initializeControllers(controllers);
@@ -38,8 +43,25 @@ export class TourApplication implements CoreApplication {
     return server;
   }
 
-  public connectToDatabase(): void {
-    mongoose.connect(this.uri);
+  public async connectToMessagingSystem(): Promise<void> {
+    // await natsInstance.connect(
+    //   process.env.NATS_CLUSTER_ID,
+    //   process.env.NATS_CLIENT_ID,
+    //   process.env.NATS_URL,
+    // );
+    // natsInstance.client.on('close', () => {
+    //   console.log('NATS 연결 종료.');
+    //   process.exit();
+    // });
+    // process.on('SIGINT', () => natsInstance.client.close());
+    // process.on('SIGTERM', () => natsInstance.client.close());
+    // new ReviewCreatedSubscriber(natsInstance.client).subscribe();
+  }
+
+  public async connectToDatabase(): Promise<void> {
+    await mongoose.connect(this.uri);
+
+    console.log('MongoDB 연결 완료.');
   }
 
   /*
@@ -77,7 +99,6 @@ export class TourApplication implements CoreApplication {
      * JSON 형식인 { name: ‘assu’, age: 30 } 으로 본문을 보내면 req.body에 그대로 들어간다.
      * URL-encoded 형식인 name=assu&age=30 으로 본문을 보내면 req.body에 { name: ‘assu’, age: 30 }으로 들어간다.
      */
-    this.app.use(bodyParser.json());
 
     this.app.use(
       hpp({
@@ -92,6 +113,7 @@ export class TourApplication implements CoreApplication {
       }),
     );
 
+    this.app.use(bodyParser.json());
     this.app.use(cookieParser());
 
     if (process.env.NODE_ENV === 'development') {
@@ -111,5 +133,12 @@ export class TourApplication implements CoreApplication {
 
   public initializeErrorHandler(): void {
     this.app.use(errorMiddleware);
+  }
+
+  public makeDirectory(): void {
+    if (!fs.existsSync(process.env.IMAGE_DIRECTORY_PATH)) {
+      console.error('사용자 이미지 디렉터리가 존재하지 않으므로 생성합니다.');
+      fs.mkdirSync(process.env.IMAGE_DIRECTORY_PATH, { recursive: true });
+    }
   }
 }

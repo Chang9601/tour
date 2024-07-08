@@ -31,3 +31,10 @@ spec:
                 name: tour
                 port:
                   number: 3000
+          - path: /api/v1/reviews/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review
+                port:
+                  number: 3000

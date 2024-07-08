@@ -11,12 +11,15 @@ import {
   authenticationMiddleware,
   authorizationMiddleware,
   UserRole,
+  multerInstance,
 } from '@whooatour/common';
 
 import { TourNotFoundError } from '../error/tour-not-found.error';
 import { Tour } from '../model/tour.model';
 import { TourRepository } from '../repository/tour.repository';
 import { TourValidator } from '../util/tour-validator';
+
+multerInstance.initialize(process.env.IMAGE_DIRECTORY_PATH, 'tour', 'image');
 
 export class TourController implements CoreController {
   public readonly path = '/api/v1/tours';
@@ -38,6 +41,14 @@ export class TourController implements CoreController {
     this.router.route(`${this.path}/monthly-plan`).get(this.getMonthlyPlan);
 
     this.router.route(`${this.path}/statistics`).get(this.getStatistics);
+
+    this.router
+      .route(`${this.path}/tours-within/:distance/center/:latlng/:unit`)
+      .get(this.getToursWithin);
+
+    this.router
+      .route(`${this.path}/distances/:latlng/unit/:unit`)
+      .get(this.getDistances);
 
     this.router
       .route(`${this.path}/top5`)
@@ -64,6 +75,7 @@ export class TourController implements CoreController {
       .patch(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
+        this.uploadImage,
         ...validationMiddleware(TourValidator.update()),
         this.updateTour,
       );
@@ -85,8 +97,12 @@ export class TourController implements CoreController {
     next(error);
   };
 
-  public aliasTopTours = catchAsync(
-    async (request: Request, response: Response, next: NextFunction) => {
+  private aliasTopTours = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
       request.query.limit = '5';
       request.query.sort = '-ratingAverage,price';
       request.query.fields = 'name,price,ratingAverage,summary,difficulty';
@@ -95,8 +111,12 @@ export class TourController implements CoreController {
     },
   );
 
-  public createTour = catchAsync(
-    async (request: Request, response: Response, next: NextFunction) => {
+  private createTour = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
       const tour = await this.repository.create(request.body);
 
       const success = ApiResponse.handleSuccess(
@@ -110,8 +130,12 @@ export class TourController implements CoreController {
     },
   );
 
-  public deleteTour = catchAsync(
-    async (request: Request, response: Response, next: NextFunction) => {
+  private deleteTour = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
       const tour = await this.repository.delete({ _id: request.params.id });
 
       if (!tour) {
@@ -135,8 +159,57 @@ export class TourController implements CoreController {
     },
   );
 
-  public getMonthlyPlan = catchAsync(
-    async (request: Request, response: Response) => {
+  private getDistances = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const { latlng, unit } = request.params;
+
+      const [lat, lng] = latlng.split(',');
+
+      if (!lat || !lng) {
+        next();
+      }
+
+      const multiplier = unit === 'mi' ? 0.000621371 : 0.001;
+      const distances = await this.repository.aggregate([
+        {
+          $geoNear: {
+            near: {
+              type: 'Point',
+              coordinates: [parseFloat(lng), parseFloat(lat)],
+            },
+            distanceField: 'distance',
+            distanceMultiplier: multiplier,
+          },
+        },
+        {
+          $project: {
+            distance: 1,
+            name: 1,
+          },
+        },
+      ]);
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        distances,
+        '거리 안에 존재하는 여행 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private getMonthlyPlan = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
       const year = +request.params.year;
 
       const plan = await this.repository.aggregate([
@@ -184,8 +257,12 @@ export class TourController implements CoreController {
     },
   );
 
-  public getStatistics = catchAsync(
-    async (request: Request, response: Response) => {
+  private getStatistics = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
       /*
        * 집계 파이프라인(aggregate pipeline)은 특정 컬렉션의 모든 도큐먼트가 통과하는 파이프라인을 정의한다.
        * 도큐먼트는 단계별로 처리되며 집계된 결과물로 변환된다. MongoDB 데이터베이스의 기능 중 하나이다.
@@ -231,7 +308,7 @@ export class TourController implements CoreController {
     },
   );
 
-  public getTour = catchAsync(
+  private getTour = catchAsync(
     async (
       request: Request,
       response: Response,
@@ -241,6 +318,7 @@ export class TourController implements CoreController {
        * findById() 메서드는 내부적으로 findOne() 메서드를 사용한다.
        * 즉, Tour.findOne({ _id: req.params.id })
        */
+
       const tour = await this.repository.find({ _id: request.params.id });
 
       if (!tour) {
@@ -264,7 +342,7 @@ export class TourController implements CoreController {
     },
   );
 
-  public getTours = catchAsync(
+  private getTours = catchAsync(
     async (
       request: QueryRequest,
       response: Response,
@@ -309,11 +387,61 @@ export class TourController implements CoreController {
     },
   );
 
-  public updateTour = catchAsync(
-    async (request: Request, response: Response, next: NextFunction) => {
+  /* /tours-within/233/center/34.11145,-118.113491/unit/mi */
+  private getToursWithin = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const { latlng, unit } = request.params;
+      const distance = parseFloat(request.params.distance);
+
+      const [lat, lng] = latlng.split(',');
+
+      const radius = unit === 'mi' ? distance / 3963.2 : distance / 6378.1;
+
+      if (!lat || !lng) {
+        next();
+      }
+
+      const tours = await this.repository.findAll({
+        sourceLocation: { $geoWithin: { $centerSphere: [[lng, lat], radius] } },
+      });
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        tours,
+        '거리 안에 존재하는 여행 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private updateTour = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      if (request.files) {
+        const files = request.files as {
+          [fieldname: string]: Express.Multer.File[];
+        };
+
+        const coverImage = files.coverImage;
+        // TODO: 여러 이미지는 어떻게?
+        const images = files.images;
+
+        request.body.coverImage = coverImage[0].filename;
+        request.body.images = images;
+      }
+
       const tour = await this.repository.update(
         { _id: request.params.id },
-        request.body,
+        { ...request.body, updatedAt: Date.now() },
       );
 
       if (!tour) {
@@ -330,10 +458,15 @@ export class TourController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         tour,
-        '여행을 갱신했습니다.',
+        '여행을 수정했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
     },
   );
+
+  private uploadImage = multerInstance.multer.fields([
+    { name: 'coverImage', maxCount: 1 },
+    { name: 'images', maxCount: 3 },
+  ]);
 }

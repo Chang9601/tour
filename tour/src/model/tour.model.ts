@@ -1,5 +1,4 @@
-import mongoose, { Types } from 'mongoose';
-//import slugify from 'slugify';
+import mongoose from 'mongoose';
 
 /*
  * 여행 인스턴스가 가지는 속성을 기술하는 인터페이스.
@@ -15,6 +14,7 @@ interface TourAttr {
   discount: number;
   summary: string;
   coverImage: string;
+  locations: any; // TODO: 자료형 명시.
 }
 
 /*
@@ -23,7 +23,7 @@ interface TourAttr {
  * 예를 들어, createdAt과 같은 속성을 여행 도큐먼트가 가질 수 있다.
  */
 interface TourDocument extends mongoose.Document {
-  _id: Types.ObjectId;
+  _id: mongoose.Types.ObjectId;
   name: string;
   duration: number;
   groupSize: number;
@@ -32,6 +32,7 @@ interface TourDocument extends mongoose.Document {
   summary: string;
   coverImage: string;
   guides: [mongoose.Types.ObjectId];
+  sourceLocation: any;
 }
 
 /*
@@ -80,6 +81,8 @@ const tourSchema = new mongoose.Schema(
       default: 3,
       min: [1, '평점은 1 이상입니다.'],
       max: [5, '평점은 5 이하입니다.'],
+      set: (value: number) =>
+        Math.round(value * 10) / 10 /* 3.66666 => 36.666 => 37 => 3.7 */,
     },
     ratingCount: { type: Number, default: 0 },
     price: {
@@ -123,21 +126,21 @@ const tourSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // startLocation: {
-    //   /*
-    //    * GeoJSON은 지리 공간 데이터를 명시한다.
-    //    * 스키마 타입 옵션을 위한 것이 아니라 내장 객체이다.
-    //    * 각각의 하위 필드가 자신만의 스키마 유형 옵션을 가진다.
-    //    */
-    //   type: {
-    //     type: String,
-    //     default: 'Point',
-    //     enum: ['Point'],
-    //   },
-    //   coordinates: [Number],
-    //   address: String,
-    //   description: String,
-    // },
+    sourceLocation: {
+      /*
+       * GeoJSON은 지리 공간 데이터를 명시한다.
+       * 스키마 타입 옵션을 위한 것이 아니라 내장 객체이다.
+       * 각각의 하위 필드가 자신만의 스키마 유형 옵션을 가진다.
+       */
+      type: {
+        type: String,
+        default: 'Point',
+        enum: ['Point'],
+      },
+      coordinates: [Number],
+      address: String,
+      description: String,
+    },
     locations: [
       {
         type: {
@@ -198,6 +201,10 @@ const tourSchema = new mongoose.Schema(
     toObject: { virtuals: true, versionKey: false },
   },
 );
+
+//tourSchema.index({ price: 1 });
+//tourSchema.index({ price: 1, ratingAverage: -1 });
+tourSchema.index({ sourceLocation: '2dsphere' });
 
 /*
  * 가상 속성은 스키마에서 정의할 수 있는 필드이지만 데이터베이스에 저장되지 않는다.
@@ -275,7 +282,7 @@ tourSchema.pre(/^find/, function (next) {
 // });
 
 /* 맞춤 메서드를 모델에 추가한다. */
-tourSchema.statics.build = async (attrs: TourAttr) => {
+tourSchema.statics.build = async function (attrs: TourAttr) {
   /* 모델에 메서드를 호출한다. */
   return await Tour.create(attrs);
 
