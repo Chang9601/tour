@@ -1,8 +1,10 @@
 import request from 'supertest';
 
+import { JwtType, UserRole } from '@whooatour/common';
+
 import { AuthApplication } from '../src/app';
-import { UserController } from '../src/controller/user.controller';
 import { AuthController } from '../src/controller/auth.controller';
+import { UserController } from '../src/controller/user.controller';
 
 let authApplication: AuthApplication;
 let user: any;
@@ -19,11 +21,11 @@ describe('인증 API 테스트', () => {
 
   beforeEach(async () => {
     user = {
-      name: '톨스토이',
-      email: 'tolstoy@naver.com',
+      name: '사용자1',
+      email: 'user1@naver.com',
       password: '12341234aA!',
       passwordConfirm: '12341234aA!',
-      photo: 'me.jpg',
+      photo: 'none.jpg',
       userRole: 'USER',
     };
 
@@ -40,27 +42,28 @@ describe('인증 API 테스트', () => {
         .send(user)
         .expect(201);
 
-      const response = await request(authApplication.app)
+      const signIn = await request(authApplication.app)
         .post('/api/v1/auth/sign-in')
         .send(credentials)
         .expect(200);
 
-      const cookies = response.get('Set-Cookie');
+      const cookies = signIn.get('Set-Cookie');
 
       expect(cookies).toBeDefined();
     });
 
     it('잘못된 이메일로 실패해야 한다.', async () => {
-      credentials.email = 'camus@naver.com';
+      credentials.email = 'user2@naver.com';
 
       await request(authApplication.app)
         .post('/api/v1/users')
         .send(user)
         .expect(201);
+
       await request(authApplication.app)
         .post('/api/v1/auth/sign-in')
         .send(credentials)
-        .expect(400);
+        .expect(404);
     });
 
     it('잘못된 비밀번호로 실패해야 한다.', async () => {
@@ -70,6 +73,7 @@ describe('인증 API 테스트', () => {
         .post('/api/v1/users')
         .send(user)
         .expect(201);
+
       await request(authApplication.app)
         .post('/api/v1/auth/sign-in')
         .send(credentials)
@@ -79,34 +83,37 @@ describe('인증 API 테스트', () => {
 
   describe('로그아웃', () => {
     it('성공해야 한다.', async () => {
+      process.env.TEST_USER_ROLE = UserRole.User;
+
       await request(authApplication.app)
         .post('/api/v1/users')
         .send(user)
         .expect(201);
 
-      const signInResponse = await request(authApplication.app)
+      const signIn = await request(authApplication.app)
         .post('/api/v1/auth/sign-in')
         .send(credentials)
         .expect(200);
 
-      let cookies = signInResponse.get('Set-Cookie')!;
+      let cookies = signIn.get('Set-Cookie')!;
 
       expect(cookies).toBeDefined();
 
-      const signOutResponse = await request(authApplication.app)
+      const signOut = await request(authApplication.app)
         .post('/api/v1/auth/sign-out')
         .set('Cookie', cookies)
         .expect(200);
 
-      cookies = signOutResponse
+      cookies = signOut
         .get('Set-Cookie')!
         .map((cookie: string) => cookie.split(';')[0]);
 
       const accessToken = cookies
-        .find((cookie: string) => cookie.includes('AccessToken'))
+        .find((cookie: string) => cookie.includes(JwtType.AccessToken))
         ?.split('=')[1];
+
       const refreshToken = cookies
-        .find((cookie: string) => cookie.includes('RefreshToken'))
+        .find((cookie: string) => cookie.includes(JwtType.RefreshToken))
         ?.split('=')[1];
 
       expect(accessToken).toBe('');

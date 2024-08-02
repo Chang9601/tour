@@ -10,9 +10,7 @@ export function validateEnv() {
     COOKIE_REFRESH_EXPIRATION: num(),
 
     JWT_ACCESS_SECRET: str(),
-    JWT_ACCESS_EXPIRATION: str(),
     JWT_REFRESH_SECRET: str(),
-    JWT_REFRESH_EXPIRATION: str(),
 
     IMAGE_DIRECTORY_PATH: str(),
   });

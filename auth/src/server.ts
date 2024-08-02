@@ -13,13 +13,14 @@ dotenv.config({
 
 import { AuthApplication } from './app';
 import { AuthController } from './controller/auth.controller';
+import { OAuth2Controller } from './controller/oauth2.controller';
 import { UserController } from './controller/user.controller';
 import { validateEnv } from './util/env-validator';
 
 validateEnv();
 
 const authApplication = new AuthApplication(
-  [new AuthController(), new UserController()],
+  [new AuthController(), new OAuth2Controller(), new UserController()],
   process.env.PORT,
   process.env.MONGO_URI,
 );

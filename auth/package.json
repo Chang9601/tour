@@ -15,15 +15,21 @@
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "./test/setup.ts"
+    ],
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "<rootDir>/src/**/*.ts"
     ]
   },
   "author": "이창섭",
   "license": "ISC",
   "dependencies": {
-    "@whooatour/common": "^1.0.53",
+    "@whooatour/common": "^1.0.96",
+    "axios": "^1.7.5",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "envalid": "^8.0.0",
     "express": "^4.19.2",
@@ -43,6 +49,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/hpp": "^0.2.6",
     "@types/jest": "^29.5.12",

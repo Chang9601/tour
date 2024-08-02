@@ -17,6 +17,22 @@ services:
     healthcheck:
       disable: true
 
+  review:
+    container_name: tour-review
+    image: csup96/tour-review
+    command: npm run start:dev
+    env_file:
+      - ./review/.env
+    ports:
+      - '3001:3001'
+    volumes:
+      - ./review:/opt/express_app/app
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
   tour:
     container_name: tour-tour
     image: csup96/tour-tour
@@ -24,7 +40,7 @@ services:
     env_file:
       - ./tour/.env
     ports:
-      - '3001:3001'
+      - '3002:3002'
     volumes:
       - ./tour:/opt/express_app/app
     depends_on:
@@ -41,8 +57,8 @@ services:
     environment:
       # 다음 환경변수는 관리자(admin) 데이터베이스에 사용자를 생성한다.
       # 연결 문자열을 사용할 때 retryWrites=true&writeConcern=majority&authSource=admin을 추가해야 한다.
-      - MONGO_INITDB_ROOT_USERNAME: root
-      - MONGO_INITDB_ROOT_PASSWORD: root
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
     volumes:
       - mongodb:/data/db
     healthcheck:
@@ -58,10 +74,10 @@ services:
     ports:
       - '8081:8081'
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: root
-      ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo:27017/
-      ME_CONFIG_BASICAUTH: false
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=root
+      - ME_CONFIG_MONGODB_URL=mongodb://root:root@mongo:27017/
+      - ME_CONFIG_BASICAUTH=false
 
 volumes:
   mongodb:

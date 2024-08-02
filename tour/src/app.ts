@@ -3,6 +3,7 @@ import { Server } from 'http';
 
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
@@ -12,10 +13,14 @@ import {
   CoreController,
   CoreApplication,
   errorMiddleware,
-  //natsInstance,
+  natsInstance,
 } from '@whooatour/common';
 
-//import { ReviewCreatedSubscriber } from './event/listener/review-created-subscriber';
+import { BookingCancelledSubscriber } from './event/subscriber/booking-cancelled.subscriber';
+import { BookingMadeSubscriber } from './event/subscriber/booking-made.subscriber';
+import { ReviewCreatedSubscriber } from './event/subscriber/review-created.subscriber';
+import { ReviewDeletedSubscriber } from './event/subscriber/review-deleted.subscriber';
+import { ReviewUpdatedSubscriber } from './event/subscriber/review-updated.subscriber';
 
 export class TourApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -37,31 +42,49 @@ export class TourApplication implements CoreApplication {
 
   public listen(): Server {
     const server = this.app.listen(this.port, () => {
-      console.log(`포트 ${this.port}에서 서버 실행 중.`);
+      console.log(`포트 ${this.port}에서 서버가 실행 중 입니다.`);
     });
 
     return server;
   }
 
   public async connectToMessagingSystem(): Promise<void> {
-    // await natsInstance.connect(
-    //   process.env.NATS_CLUSTER_ID,
-    //   process.env.NATS_CLIENT_ID,
-    //   process.env.NATS_URL,
-    // );
-    // natsInstance.client.on('close', () => {
-    //   console.log('NATS 연결 종료.');
-    //   process.exit();
-    // });
-    // process.on('SIGINT', () => natsInstance.client.close());
-    // process.on('SIGTERM', () => natsInstance.client.close());
-    // new ReviewCreatedSubscriber(natsInstance.client).subscribe();
+    await natsInstance.connect(
+      process.env.NATS_CLUSTER_ID,
+      process.env.NATS_CLIENT_ID,
+      process.env.NATS_URL,
+    );
+
+    natsInstance.client.on('close', () => {
+      console.log('NATS 연결이 종료되었습니다.');
+      process.exit();
+    });
+
+    process.on('SIGINT', () => natsInstance.client.close());
+    process.on('SIGTERM', () => natsInstance.client.close());
+
+    new BookingMadeSubscriber(natsInstance.client).subscribe();
+    new BookingCancelledSubscriber(natsInstance.client).subscribe();
+
+    new ReviewCreatedSubscriber(natsInstance.client).subscribe();
+    new ReviewDeletedSubscriber(natsInstance.client).subscribe();
+    new ReviewUpdatedSubscriber(natsInstance.client).subscribe();
   }
 
   public async connectToDatabase(): Promise<void> {
     await mongoose.connect(this.uri);
 
-    console.log('MongoDB 연결 완료.');
+    console.log('MongoDB에 연결되었습니다.');
+  }
+
+  public initializeControllers(controllers: CoreController[]): void {
+    controllers.forEach((controller) => {
+      this.app.use(controller.router);
+    });
+  }
+
+  public initializeErrorHandler(): void {
+    this.app.use(errorMiddleware);
   }
 
   /*
@@ -114,6 +137,7 @@ export class TourApplication implements CoreApplication {
     );
 
     this.app.use(bodyParser.json());
+    this.app.use(cors());
     this.app.use(cookieParser());
 
     if (process.env.NODE_ENV === 'development') {
@@ -123,16 +147,6 @@ export class TourApplication implements CoreApplication {
        */
       this.app.use(morgan('dev'));
     }
-  }
-
-  public initializeControllers(controllers: CoreController[]): void {
-    controllers.forEach((controller) => {
-      this.app.use(controller.router);
-    });
-  }
-
-  public initializeErrorHandler(): void {
-    this.app.use(errorMiddleware);
   }
 
   public makeDirectory(): void {

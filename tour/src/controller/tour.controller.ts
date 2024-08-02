@@ -12,9 +12,10 @@ import {
   authorizationMiddleware,
   UserRole,
   multerInstance,
+  natsInstance,
 } from '@whooatour/common';
 
-import { TourNotFoundError } from '../error/tour-not-found.error';
+import { TourCreatedPublisher } from '../event/publisher/tour-created.publisher';
 import { Tour } from '../model/tour.model';
 import { TourRepository } from '../repository/tour.repository';
 import { TourValidator } from '../util/tour-validator';
@@ -23,6 +24,7 @@ multerInstance.initialize(process.env.IMAGE_DIRECTORY_PATH, 'tour', 'image');
 
 export class TourController implements CoreController {
   public readonly path = '/api/v1/tours';
+  public readonly adminPath = '/api/v1/admin/tours';
   public readonly router = Router();
   public readonly repository = new TourRepository(Tour);
 
@@ -50,13 +52,17 @@ export class TourController implements CoreController {
       .route(`${this.path}/distances/:latlng/unit/:unit`)
       .get(this.getDistances);
 
+    this.router.route(`${this.path}/:id`).get(this.getTour);
+
     this.router
       .route(`${this.path}/top5`)
       .get(this.aliasTopTours, this.getTours);
 
+    this.router.route(`${this.path}`).get(this.getTours);
+
+    /* 관리자 경로 */
     this.router
-      .route(this.path)
-      .get(this.getTours)
+      .route(this.adminPath)
       .post(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
@@ -65,13 +71,12 @@ export class TourController implements CoreController {
       );
 
     this.router
-      .route(`${this.path}/:id`)
+      .route(`${this.adminPath}/:id`)
       .delete(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
         this.deleteTour,
       )
-      .get(this.getTour)
       .patch(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
@@ -108,54 +113,6 @@ export class TourController implements CoreController {
       request.query.fields = 'name,price,ratingAverage,summary,difficulty';
 
       next();
-    },
-  );
-
-  private createTour = catchAsync(
-    async (
-      request: Request,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      const tour = await this.repository.create(request.body);
-
-      const success = ApiResponse.handleSuccess(
-        Code.CREATED.code,
-        Code.CREATED.message,
-        tour,
-        '여행을 생성했습니다.',
-      );
-
-      response.status(Code.CREATED.code).json(success);
-    },
-  );
-
-  private deleteTour = catchAsync(
-    async (
-      request: Request,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      const tour = await this.repository.delete({ _id: request.params.id });
-
-      if (!tour) {
-        return next(
-          new TourNotFoundError(
-            Code.NOT_FOUND,
-            '여행이 존재하지 않습니다.',
-            true,
-          ),
-        );
-      }
-
-      const success = ApiResponse.handleSuccess(
-        Code.NO_CONTENT.code,
-        Code.NO_CONTENT.message,
-        null,
-        '여행을 삭제했습니다.',
-      );
-
-      response.status(Code.OK.code).json(success);
     },
   );
 
@@ -321,16 +278,6 @@ export class TourController implements CoreController {
 
       const tour = await this.repository.find({ _id: request.params.id });
 
-      if (!tour) {
-        return next(
-          new TourNotFoundError(
-            Code.NOT_FOUND,
-            '여행이 존재하지 않습니다.',
-            true,
-          ),
-        );
-      }
-
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
         Code.OK.message,
@@ -380,7 +327,7 @@ export class TourController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         tours,
-        '여행 목록을 찾았습니다.',
+        '여행 목록을 조회했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
@@ -420,6 +367,55 @@ export class TourController implements CoreController {
     },
   );
 
+  /* 관리자 API */
+  private createTour = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const tour = await this.repository.create(request.body);
+
+      await new TourCreatedPublisher(natsInstance.client).publish({
+        id: tour.id,
+        difficulty: tour.difficulty,
+        duration: tour.duration,
+        groupSize: tour.groupSize,
+        name: tour.name,
+        price: tour.price,
+        sequence: tour.sequence,
+      });
+
+      const success = ApiResponse.handleSuccess(
+        Code.CREATED.code,
+        Code.CREATED.message,
+        tour,
+        '여행을 생성했습니다.',
+      );
+
+      response.status(Code.CREATED.code).json(success);
+    },
+  );
+
+  private deleteTour = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      await this.repository.delete({ _id: request.params.id });
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        null,
+        '여행을 삭제했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
   private updateTour = catchAsync(
     async (
       request: Request,
@@ -443,16 +439,6 @@ export class TourController implements CoreController {
         { _id: request.params.id },
         { ...request.body, updatedAt: Date.now() },
       );
-
-      if (!tour) {
-        return next(
-          new TourNotFoundError(
-            Code.NOT_FOUND,
-            '여행이 존재하지 않습니다.',
-            true,
-          ),
-        );
-      }
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,

@@ -22,18 +22,14 @@ spec:
               value: '3000'
             - name: MONGO_URI
               value: 'mongodb://auth-mongo:27017/auth'
-            - name: JWT_ACCESS_SECRET
-              value: 'personal-tour-project-in-nodejs-typescript-access'
-            - name: JWT_REFRESH_SECRET
-              value: 'personal-tour-project-in-nodejs-typescript-refresh'
-            - name: JWT_ACCESS_EXPIRATION
-              value: '1h'
-            - name: JWT_REFRESH_EXPIRATION
-              value: '30d'
             - name: COOKIE_ACCESS_EXPIRATION
               value: '1'
             - name: COOKIE_REFRESH_EXPIRATION
               value: '30'
+            - name: JWT_ACCESS_SECRET
+              value: 'personal-tour-project-in-nodejs-typescript-access'
+            - name: JWT_REFRESH_SECRET
+              value: 'personal-tour-project-in-nodejs-typescript-refresh'
             - name: NODEMAILER_HOST
               value: 'sandbox.smtp.mailtrap.io'
             - name: NODEMAILER_PORT
@@ -42,3 +38,11 @@ spec:
               value: 'c3518266542222'
             - name: NODEMAILER_PASS
               value: '7eac6749a5738c'
+            - name: NATS_URL
+              value: 'http://nats:4222'
+            - name: NATS_CLUSTER_ID
+              value: tour
+            - name: NATS_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name

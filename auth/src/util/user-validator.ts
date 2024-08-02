@@ -9,6 +9,10 @@ export class UserValidator {
   public static create(): RunnableValidationChains<ValidationChain> {
     return checkSchema(
       {
+        email: {
+          isEmail: { errorMessage: '유효하지 않은 형식의 이메일입니다.' },
+          trim: true,
+        },
         name: {
           isString: { errorMessage: '이름은 문자로만 구성됩니다.' },
           isLength: {
@@ -17,12 +21,10 @@ export class UserValidator {
           },
           trim: true,
         },
-        email: {
-          isEmail: { errorMessage: '잘못된 형식의 이메일입니다.' },
-          trim: true,
-        },
         password: {
-          isStrongPassword: { errorMessage: '잘못된 형식의 비밀번호입니다.' },
+          isStrongPassword: {
+            errorMessage: '유효하지 않은 형식의 비밀번호입니다.',
+          },
           isLength: {
             options: { min: 8, max: 20 },
             errorMessage: '비밀번호는 8자리 이상 20자리 이하입니다.',
@@ -56,6 +58,11 @@ export class UserValidator {
   public static update() {
     return checkSchema(
       {
+        email: {
+          optional: true,
+          isEmail: { errorMessage: '유효하지 않은 형식의 이메일입니다.' },
+          trim: true,
+        },
         name: {
           optional: true,
           isString: { errorMessage: '이름은 문자로만 구성됩니다.' },
@@ -63,11 +70,6 @@ export class UserValidator {
             options: { min: 2 },
             errorMessage: '이름은 2자 이상입니다.',
           },
-          trim: true,
-        },
-        email: {
-          optional: true,
-          isEmail: { errorMessage: '잘못된 형식의 이메일입니다.' },
           trim: true,
         },
         photo: {
