@@ -5,5 +5,8 @@ export function validateEnv() {
     NODE_ENV: str(),
     PORT: port(),
     MONGO_URI: str(),
+
+    JWT_ACCESS_SECRET: str(),
+    JWT_REFRESH_SECRET: str(),
   });
 }

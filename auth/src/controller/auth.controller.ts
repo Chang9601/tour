@@ -11,7 +11,9 @@ import {
   UserRepository,
   authenticationMiddleware,
   catchAsync,
+  JwtType,
 } from '@whooatour/common';
+import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 
@@ -60,54 +62,45 @@ export class AuthController implements CoreController {
           new InvalidCredentialsError(
             Code.BAD_REQUEST,
             '이메일과 비밀번호를 입력하세요.',
-            true,
           ),
         );
       }
 
       const user = await this.repository.find({ email });
 
-      if (!user || !(await user.matchPassword(password, user.password))) {
+      if (!(await user.matchPassword(password, user.password))) {
         return next(
           new InvalidCredentialsError(
             Code.BAD_REQUEST,
             '이메일 혹은 비밀번호가 정확하지 않습니다.',
-            true,
           ),
         );
       }
 
       const payload: JwtPayload = { id: user._id };
 
-      const jwtAccess = JwtUtil.issue(
-        payload,
-        process.env.JWT_ACCESS_SECRET,
-        process.env.JWT_ACCESS_EXPIRATION,
-      );
-      const jwtRefresh = JwtUtil.issue(
-        payload,
-        process.env.JWT_REFRESH_SECRET,
-        process.env.JWT_REFRESH_EXPIRATION,
-      );
+      const jwt: JwtBundle = JwtUtil.issue(payload);
 
-      const cookieAccess = CookieUtil.set(
-        'AccessToken',
-        jwtAccess,
-        true,
-        process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
-        'Strict',
-        '/',
-        process.env.NODE_ENV === 'production' ? true : false,
-      );
-      const cookieRefresh = CookieUtil.set(
-        'RefreshToken',
-        jwtRefresh,
-        true,
-        process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
-        'Strict',
-        '/',
-        process.env.NODE_ENV === 'production' ? true : false,
-      );
+      const cookies = [
+        CookieUtil.set(
+          JwtType.AccessToken,
+          jwt.accessToken,
+          true,
+          process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
+          'Strict',
+          '/',
+          process.env.NODE_ENV === 'production' ? true : false,
+        ),
+        CookieUtil.set(
+          JwtType.RefreshToken,
+          jwt.refreshToken,
+          true,
+          process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
+          'Strict',
+          '/',
+          process.env.NODE_ENV === 'production' ? true : false,
+        ),
+      ];
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -118,7 +111,7 @@ export class AuthController implements CoreController {
 
       response
         .status(Code.OK.code)
-        .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
+        .setHeader('Set-Cookie', cookies)
         .json(success);
     },
   );
@@ -129,8 +122,10 @@ export class AuthController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const cookieAccess = CookieUtil.clear('AccessToken', '/');
-      const cookieRefresh = CookieUtil.clear('RefreshToken', '/');
+      const cookies = [
+        CookieUtil.clear(JwtType.AccessToken, '/'),
+        CookieUtil.clear(JwtType.RefreshToken, '/'),
+      ];
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -141,7 +136,7 @@ export class AuthController implements CoreController {
 
       response
         .status(Code.OK.code)
-        .setHeader('Set-Cookie', [cookieAccess, cookieRefresh])
+        .setHeader('Set-Cookie', cookies)
         .json(success);
     },
   );

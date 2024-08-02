@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking-mongo
+  template:
+    metadata:
+      labels:
+        app: booking-mongo
+    spec:
+      containers:
+        - name: booking-mongo
+          image: mongo:7.0.9

@@ -11,11 +11,19 @@ build:
       context: auth
       docker:
         dockerfile: Dockerfile
-    - image: csup96/tour-tour
-      context: tour
+    - image: csup96/tour-booking
+      context: booking
+      docker:
+        dockerfile: Dockerfile
+    - image: csup96/tour-expiration
+      context: expiration
       docker:
         dockerfile: Dockerfile
     - image: csup96/tour-review
       context: review
+      docker:
+        dockerfile: Dockerfile
+    - image: csup96/tour-tour
+      context: tour
       docker:
         dockerfile: Dockerfile

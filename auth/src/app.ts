@@ -3,20 +3,22 @@ import { Server } from 'http';
 
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import express from 'express';
-import mongoose from 'mongoose';
-import morgan from 'morgan';
+import mongoSanitize from 'express-mongo-sanitize';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
-import mongoSanitize from 'express-mongo-sanitize';
-import xss from 'xss-clean';
 import hpp from 'hpp';
+import mongoose from 'mongoose';
+import morgan from 'morgan';
+import xss from 'xss-clean';
 
 import {
   CoreApplication,
   CoreController,
   errorMiddleware,
 } from '@whooatour/common';
+import path from 'path';
 
 export class AuthApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -37,7 +39,7 @@ export class AuthApplication implements CoreApplication {
 
   public listen(): Server {
     const server = this.app.listen(this.port, () => {
-      console.log(`포트 ${this.port}에서 서버가 실행 중입니다.`);
+      console.log(`포트 ${this.port}에서 서버가 실행 중 입니다.`);
     });
     return server;
   }
@@ -96,6 +98,7 @@ export class AuthApplication implements CoreApplication {
     );
 
     this.app.use(bodyParser.json());
+    this.app.use(cors());
     /*
      * cookie-parser 모듈은 요청에 있는 쿠키를 해석하여 req.cookies 객체로 만드는 미들웨어이다.
      * 유효기간이 지난 쿠키는 자동으로 거른다.
@@ -112,6 +115,8 @@ export class AuthApplication implements CoreApplication {
     if (process.env.NODE_ENV === 'development') {
       this.app.use(morgan('dev'));
     }
+
+    this.app.use(express.static(path.join(__dirname, './', 'public')));
   }
 
   // TODO: 404 페이지 경로는 하나로 합치기.

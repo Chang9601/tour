@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expiration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: expiration
+  template:
+    metadata:
+      labels:
+        app: expiration
+    spec:
+      containers:
+        - name: expiration
+          image: csup96/tour-expiration
+          env:
+            - name: NODE_ENV
+              value: 'development'
+            - name: PORT
+              value: '3000'
+            - name: COOKIE_ACCESS_EXPIRATION
+              value: '1'
+            - name: COOKIE_REFRESH_EXPIRATION
+              value: '30'
+            - name: JWT_ACCESS_SECRET
+              value: 'personal-tour-project-in-nodejs-typescript-access'
+            - name: JWT_REFRESH_SECRET
+              value: 'personal-tour-project-in-nodejs-typescript-refresh'
+            - name: NATS_URL
+              value: 'http://nats:4222'
+            - name: NATS_CLUSTER_ID
+              value: tour
+            - name: NATS_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: REDIS_HOST
+              value: expiration-redis

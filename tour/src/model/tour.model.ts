@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
+import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
 /*
  * 여행 인스턴스가 가지는 속성을 기술하는 인터페이스.
  * 여행 인스턴스를 생성할 때마다 TypeScript는 속성에 대해 알지 못한다.
  * 예를 들어, nae와 같이 속성에 오타가 있어도 Mongoose로부터 정보를 받지 못하기 때문에 TypeScript가 컴파일 오류를 내지 않는다.
  */
-interface TourAttr {
+interface TourAttribute {
   name: string;
   duration: number;
   groupSize: number;
@@ -24,15 +25,20 @@ interface TourAttr {
  */
 interface TourDocument extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
-  name: string;
-  duration: number;
-  groupSize: number;
-  difficulty: string;
-  price: number;
-  summary: string;
   coverImage: string;
+  duration: number;
+  difficulty: string;
+  discount: number;
+  groupSize: number;
   guides: [mongoose.Types.ObjectId];
+  name: string;
+  price: number;
+  ratingCount: number;
+  ratingAverage: number;
   sourceLocation: any;
+  summary: string;
+  bookingId?: mongoose.Types.ObjectId;
+  sequence: number;
 }
 
 /*
@@ -41,7 +47,7 @@ interface TourDocument extends mongoose.Document {
  * JavaScript와 달리 해당 인터페이스가 없으면 오류가 발생한다.
  */
 interface TourModel extends mongoose.Model<TourDocument> {
-  build(attrs: TourAttr): Promise<TourDocument>;
+  build(attrs: TourAttribute): Promise<TourDocument>;
 }
 
 /* 스키마는 데이터의 구조, 기본값 및 유효성을 설명하여 데이터를 모델화한다. */
@@ -78,8 +84,8 @@ const tourSchema = new mongoose.Schema(
     },
     ratingAverage: {
       type: Number,
-      default: 3,
-      min: [1, '평점은 1 이상입니다.'],
+      default: 0,
+      min: [0, '평점은 0 이상입니다.'],
       max: [5, '평점은 5 이하입니다.'],
       set: (value: number) =>
         Math.round(value * 10) / 10 /* 3.66666 => 36.666 => 37 => 3.7 */,
@@ -93,7 +99,7 @@ const tourSchema = new mongoose.Schema(
     discount: {
       type: Number,
       validate: {
-        message: '할인가 ({VALUE}) 정상가보다 작아야 합니다.',
+        message: '할인가({VALUE})는 정상가보다 작아야 합니다.',
         /*
          * this 예약어는 새로운 도큐먼트 생성 시에만 도큐먼트를 가리킨다. 따라서 갱신에는 작동하지 않는다.
          * 즉, save() 메서드와 create() 메서드에만 작동한다.
@@ -112,6 +118,9 @@ const tourSchema = new mongoose.Schema(
       type: String,
       trim: true,
       required: [true, '요약문이 있어야 합니다.'],
+    },
+    bookingId: {
+      type: mongoose.Schema.ObjectId,
     },
     description: {
       type: String,
@@ -203,8 +212,8 @@ const tourSchema = new mongoose.Schema(
 );
 
 //tourSchema.index({ price: 1 });
-//tourSchema.index({ price: 1, ratingAverage: -1 });
-tourSchema.index({ sourceLocation: '2dsphere' });
+///tourSchema.index({ price: 1, ratingAverage: -1 });
+//tourSchema.index({ sourceLocation: '2dsphere' });
 
 /*
  * 가상 속성은 스키마에서 정의할 수 있는 필드이지만 데이터베이스에 저장되지 않는다.
@@ -281,8 +290,11 @@ tourSchema.pre(/^find/, function (next) {
 //   next();
 // });
 
+tourSchema.set('versionKey', 'sequence');
+tourSchema.plugin(updateIfCurrentPlugin);
+
 /* 맞춤 메서드를 모델에 추가한다. */
-tourSchema.statics.build = async function (attrs: TourAttr) {
+tourSchema.statics.build = async function (attrs: TourAttribute) {
   /* 모델에 메서드를 호출한다. */
   return await Tour.create(attrs);
 

@@ -10,6 +10,13 @@ spec:
     - host: tour.xyz
       http:
         paths:
+          - path: /api/v1/auth/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth
+                port:
+                  number: 3000
           - path: /api/v1/users/?(.*)
             pathType: ImplementationSpecific
             backend:
@@ -17,11 +24,18 @@ spec:
                 name: auth
                 port:
                   number: 3000
-          - path: /api/v1/auth/?(.*)
+          - path: /api/v1/admin/users/?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
                 name: auth
+                port:
+                  number: 3000
+          - path: /api/v1/booking/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: booking
                 port:
                   number: 3000
           - path: /api/v1/tours/?(.*)
@@ -31,7 +45,21 @@ spec:
                 name: tour
                 port:
                   number: 3000
+          - path: /api/v1/admin/tours/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: tour
+                port:
+                  number: 3000
           - path: /api/v1/reviews/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review
+                port:
+                  number: 3000
+          - path: /api/v1/admin/reviews/?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
