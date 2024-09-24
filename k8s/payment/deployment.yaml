@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment
+  template:
+    metadata:
+      labels:
+        app: payment
+    spec:
+      containers:
+        - name: payment
+          image: csup96/tour-payment
+          env:
+            - name: NODE_ENV
+              value: 'development'
+            - name: PORT
+              value: '3000'
+            - name: MONGO_URI
+              value: 'mongodb://payment-mongo:27017/payment'
+            - name: REDIS_HOST
+              value: 'payment-redis'
+            - name: REDIS_PORT
+              value: '6379'
+            - name: JWT_ACCESS_SECRET
+              value: 'personal-tour-project-in-nodejs-typescript-access'
+            - name: JWT_REFRESH_SECRET
+              value: 'personal-tour-project-in-nodejs-typescript-refresh'
+            - name: STRIPE_SECRET_KEY
+              value:
+            - name: NATS_URL
+              value: 'http://nats:4222'
+            - name: NATS_CLUSTER_ID
+              value: 'tour'
+            - name: NATS_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name

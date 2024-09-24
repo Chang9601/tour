@@ -17,6 +17,13 @@ spec:
                 name: auth
                 port:
                   number: 3000
+          - path: /api/v1/oauth2/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth
+                port:
+                  number: 3000
           - path: /api/v1/users/?(.*)
             pathType: ImplementationSpecific
             backend:
@@ -31,11 +38,53 @@ spec:
                 name: auth
                 port:
                   number: 3000
-          - path: /api/v1/booking/?(.*)
+          - path: /api/v1/tours/?(.*)/bookings
             pathType: ImplementationSpecific
             backend:
               service:
                 name: booking
+                port:
+                  number: 3000
+          - path: /api/v1/bookings/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: booking
+                port:
+                  number: 3000
+          - path: /api/v1/admin/bookings/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: booking
+                port:
+                  number: 3000
+          - path: /api/v1/payments/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment
+                port:
+                  number: 3000
+          - path: /api/v1/tours/?(.*)/reviews
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review
+                port:
+                  number: 3000
+          - path: /api/v1/reviews/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review
+                port:
+                  number: 3000
+          - path: /api/v1/admin/reviews/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review
                 port:
                   number: 3000
           - path: /api/v1/tours/?(.*)
@@ -52,17 +101,10 @@ spec:
                 name: tour
                 port:
                   number: 3000
-          - path: /api/v1/reviews/?(.*)
+          - path: /?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
-                name: review
-                port:
-                  number: 3000
-          - path: /api/v1/admin/reviews/?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: review
+                name: client
                 port:
                   number: 3000

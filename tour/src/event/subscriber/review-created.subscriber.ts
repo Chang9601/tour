@@ -17,13 +17,12 @@ export class ReviewCreatedSubscriber extends CoreSubscriber<ReviewCreatedEvent> 
   readonly subject = Subject.ReviewCreated;
   queueGroup = queueGroup;
 
-  // TODO: 트랜잭션
   async onMessage(
     data: ReviewCreatedEvent['data'],
     message: Message,
   ): Promise<void> {
     try {
-      const { id, rating } = data;
+      const { id, rating, ratingsAverage, ratingsCount } = data;
 
       const tour: Nullable<TourDocument> = await Tour.findOne({
         _id: data.tour.id,
@@ -46,11 +45,10 @@ export class ReviewCreatedSubscriber extends CoreSubscriber<ReviewCreatedEvent> 
         tour,
       });
 
-      const oldRatingSum = tour.ratingAverage * tour.ratingCount;
-      const newRatingSum = oldRatingSum + rating;
-
-      tour.ratingCount += 1;
-      tour.ratingAverage = newRatingSum / tour.ratingCount;
+      tour.set({
+        ratingsAverage,
+        ratingsCount,
+      });
 
       await tour.save({ validateModifiedOnly: true });
 

@@ -1,19 +1,26 @@
 import fs from 'fs';
 import { Server } from 'http';
+import path from 'path';
 
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
+import mongoSanitize from 'express-mongo-sanitize';
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet';
+import hpp from 'hpp';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
-import hpp from 'hpp';
+import xss from 'xss-clean';
 
 import {
   CoreController,
   CoreApplication,
   errorMiddleware,
   natsInstance,
+  PageNotFoundError,
+  Code,
 } from '@whooatour/common';
 
 import { BookingCancelledSubscriber } from './event/subscriber/booking-cancelled.subscriber';
@@ -21,16 +28,18 @@ import { BookingMadeSubscriber } from './event/subscriber/booking-made.subscribe
 import { ReviewCreatedSubscriber } from './event/subscriber/review-created.subscriber';
 import { ReviewDeletedSubscriber } from './event/subscriber/review-deleted.subscriber';
 import { ReviewUpdatedSubscriber } from './event/subscriber/review-updated.subscriber';
+import { UserBannedSubscriber } from './event/subscriber/user-banned.subscriber';
+import { UserUnbannedSubscriber } from './event/subscriber/user-unbanned.subscriber';
 
 export class TourApplication implements CoreApplication {
   public readonly app: express.Application;
   public readonly port: number;
   public readonly uri: string;
 
-  constructor(controllers: CoreController[], port: number, uri: string) {
+  constructor(controllers: CoreController[]) {
     this.app = express();
-    this.port = port;
-    this.uri = uri;
+    this.port = process.env.PORT;
+    this.uri = process.env.MONGO_URI;
 
     this.makeDirectory();
     this.connectToMessagingSystem();
@@ -63,12 +72,15 @@ export class TourApplication implements CoreApplication {
     process.on('SIGINT', () => natsInstance.client.close());
     process.on('SIGTERM', () => natsInstance.client.close());
 
-    new BookingMadeSubscriber(natsInstance.client).subscribe();
     new BookingCancelledSubscriber(natsInstance.client).subscribe();
+    new BookingMadeSubscriber(natsInstance.client).subscribe();
 
     new ReviewCreatedSubscriber(natsInstance.client).subscribe();
     new ReviewDeletedSubscriber(natsInstance.client).subscribe();
     new ReviewUpdatedSubscriber(natsInstance.client).subscribe();
+
+    new UserBannedSubscriber(natsInstance.client).subscribe();
+    new UserUnbannedSubscriber(natsInstance.client).subscribe();
   }
 
   public async connectToDatabase(): Promise<void> {
@@ -81,6 +93,18 @@ export class TourApplication implements CoreApplication {
     controllers.forEach((controller) => {
       this.app.use(controller.router);
     });
+
+    this.app.all(
+      '*',
+      (request: Request, response: Response, next: NextFunction) => {
+        next(
+          new PageNotFoundError(
+            Code.NOT_FOUND,
+            `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+          ),
+        );
+      },
+    );
   }
 
   public initializeErrorHandler(): void {
@@ -94,7 +118,7 @@ export class TourApplication implements CoreApplication {
    * 코드에서 처음으로 나타나는 미들웨어는 나중에 나타나는 미들웨어보다 먼저 실행된다.
    * 전체 과정은 생성된 요청/응답 객체가 각 미들웨어를 통해 통과되어 처리되며 각 미들웨어 함수의 끝에서 다음 함수가 호출된다.
    * 즉, next() 함수를 호출할 때 미들웨어 스택 내의 다음 미들웨어가 실행된다. 이 과정은 마지막 미들웨어에 도달할 때까지 반복된다.
-   * 마지막 미들웨어 함수는 다음 함수를 호출하지 않으며 응답을 전송한다.
+   * 마지막 미들웨어 함수는 next() 함수를 호출하지 않으며 응답을 전송한다.
    *
    * 요청-응답 주기.
    * 요청 -> 미들웨어 스택의 모든 미들웨어 -> 응답
@@ -102,33 +126,29 @@ export class TourApplication implements CoreApplication {
    * 미들웨어를 사용하기 위해 express.use() 함수를 사용한다.
    */
   public initializeMiddlewares(): void {
-    /*
-     * body-parser 모듈의 json() 메서드는 요청 본문에 있는 데이터를 해석하여 request.body 객체로 만들어주는 미들웨어이다.
-     * 단, 이미지, 동영상, 파일과 같은 멀티파트 데이터는 처리하지 못하며 multer 모듈을 사용한다.
-     * express 모듈 4.16.0 부터 body-parser 모듈의 일부 기능이 express 모듈에 내장되어 따로 설치할 필요는 없지만 버퍼나 텍스트 형식의 데이터 처리시엔 따로 설치해서 사용해서 한다.
-     * body-parser 모듈은 JSON, URL-encoded 형식 외 Raw, Text 형식의 데이터도 추가로 해석할 수 있는데 Raw는 요청의 본문이 버퍼 데이터인 경우 Text는 텍스트 데이터일 경우이다.
-     *
-     * JSON
-     * JSON 형식의 데이터 전달 방식.
-     *
-     * URL-encoded
-     * 주소 형식으로 데이터는 보내는 방식.
-     * form 전송은 URL-encoded 방식을 주로 사용한다.
-     * { extended: false }
-     * 1. false: NodeJS 내장 모듈인 querystring 모듈을 사용하여 쿼리 문자열을 해석한다.
-     * 2. true: npm 모듈인 qs 모듈을 사용하여 쿼리 문자열을 해석한다.
-     *
-     * POST 요청과 PUT 요청의 본문을 받을 시 body-parser 모듈이 내부적으로 스트림을 처리해 req.body에 추가한다.
-     * JSON 형식인 { name: ‘assu’, age: 30 } 으로 본문을 보내면 req.body에 그대로 들어간다.
-     * URL-encoded 형식인 name=assu&age=30 으로 본문을 보내면 req.body에 { name: ‘assu’, age: 30 }으로 들어간다.
-     */
+    this.app.set('trust proxy', 1);
+
+    this.app.use(helmet());
+
+    const limiter = rateLimit({
+      max: 100,
+      windowMs: 60 * 60 * 1000,
+      message:
+        '해당 IP 주소에서 너무 많은 요청을 보냈습니다. 1시간 후에 다시 시도하세요.',
+    });
+
+    this.app.use('/api', limiter);
+
+    this.app.use(mongoSanitize());
+
+    this.app.use(xss());
 
     this.app.use(
       hpp({
         whitelist: [
           'duration',
-          'ratingAverage',
-          'ratingCount',
+          'ratingsAverage',
+          'ratingsCount',
           'price',
           'difficulty',
           'groupSize',
@@ -136,17 +156,18 @@ export class TourApplication implements CoreApplication {
       }),
     );
 
+    /* body-parser: https://assu10.github.io/dev/2021/12/01/nodejs-express-1 */
     this.app.use(bodyParser.json());
     this.app.use(cors());
+    /* cookie-parser: https://assu10.github.io/dev/2021/12/01/nodejs-express-1/ */
     this.app.use(cookieParser());
 
     if (process.env.NODE_ENV === 'development') {
-      /*
-       * morgan 모듈은 요청과 응답에 대한 정보를 콘솔에 기록하는 미들웨어이다.
-       * 개발 환경에서는 dev, 배포 환경에서는 combined를 사용한다.
-       */
+      /* morgan: https://assu10.github.io/dev/2021/12/01/nodejs-express-1 */
       this.app.use(morgan('dev'));
     }
+
+    this.app.use(express.static(path.join(__dirname, './', 'public')));
   }
 
   public makeDirectory(): void {

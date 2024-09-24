@@ -1,0 +1,80 @@
+{
+  "name": "@whooatour/payment",
+  "version": "1.0.0",
+  "description": "ExpressJS, MongoDB와 마이크로서비스 구조를 사용한 여행 서비스의 결제 모듈",
+  "main": "src/server.ts",
+  "scripts": {
+    "build": "tsc",
+    "start:dev": "ts-node src/server.ts",
+    "start:prod": "NODE_ENV=production ts-node src/server.ts",
+    "test": "jest --watchAll --no-cache",
+    "test:ci": "jest",
+    "debug": "ndb server.ts"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "./test/setup.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/dist/"
+    ],
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "<rootDir>/src/**/*.ts"
+    ]
+  },
+  "author": "이창섭",
+  "license": "ISC",
+  "dependencies": {
+    "@whooatour/common": "^1.0.120",
+    "body-parser": "^1.20.2",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "envalid": "^8.0.0",
+    "express": "^4.19.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.3.1",
+    "express-validator": "^7.1.0",
+    "helmet": "^7.1.0",
+    "hpp": "^0.2.3",
+    "ioredis": "^5.4.1",
+    "mongoose": "^8.3.3",
+    "mongoose-update-if-current": "^1.4.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "slugify": "^1.6.6",
+    "stripe": "^16.12.0",
+    "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/hpp": "^0.2.6",
+    "@types/jest": "^29.5.12",
+    "@types/mongoose": "^5.11.97",
+    "@types/morgan": "^1.9.9",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.12.8",
+    "@types/supertest": "^6.0.2",
+    "@types/typescript": "^2.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "eslint-plugin-react": "^7.34.1",
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^9.4.0",
+    "prettier": "^3.2.5",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.1.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

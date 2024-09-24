@@ -15,15 +15,11 @@ let tour2: any;
 
 describe('예약 API 테스트', () => {
   beforeAll(async () => {
-    bookingApplication = new BookingApplication(
-      [new BookingController()],
-      process.env.PORT,
-      process.env.MONGO_URI,
-    );
+    bookingApplication = new BookingApplication([new BookingController()]);
 
-    await mongoose.connection.db.createCollection('tours');
+    await mongoose.connection.db!.createCollection('tours');
 
-    tour1 = await mongoose.connection.db.collection('tours').insertOne({
+    tour1 = await mongoose.connection.db!.collection('tours').insertOne({
       coverImage: '서울숲.img',
       difficulty: '하',
       discount: 80000,
@@ -34,7 +30,7 @@ describe('예약 API 테스트', () => {
       summary: '서울숲에서 휴식을~',
     });
 
-    tour2 = await mongoose.connection.db.collection('tours').insertOne({
+    tour2 = await mongoose.connection.db!.collection('tours').insertOne({
       coverImage: '남산서울타워.img',
       difficulty: '중',
       discount: 90000,

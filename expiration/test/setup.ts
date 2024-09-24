@@ -11,9 +11,6 @@ beforeAll(async () => {
   process.env.PORT = 3000;
   process.env.MONGO_URI = uri;
 
-  process.env.COOKIE_ACCESS_EXPIRATION = 1;
-  process.env.COOKIE_REFRESH_EXPIRATION = 30;
-
   process.env.JWT_ACCESS_SECRET = 'tour-jwt-access';
   process.env.JWT_REFRESH_SECRET = 'tour-jwt-refresh';
 

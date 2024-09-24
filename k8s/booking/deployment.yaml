@@ -22,20 +22,20 @@ spec:
               value: '3000'
             - name: MONGO_URI
               value: 'mongodb://booking-mongo:27017/booking'
-            - name: COOKIE_ACCESS_EXPIRATION
-              value: '1'
-            - name: COOKIE_REFRESH_EXPIRATION
-              value: '30'
+            - name: REDIS_HOST
+              value: 'booking-redis'
+            - name: REDIS_PORT
+              value: '6379'
             - name: JWT_ACCESS_SECRET
               value: 'personal-tour-project-in-nodejs-typescript-access'
             - name: JWT_REFRESH_SECRET
               value: 'personal-tour-project-in-nodejs-typescript-refresh'
             - name: EXPIRATION_WINDOW
-              value: '900'
+              value: '60'
             - name: NATS_URL
               value: 'http://nats:4222'
             - name: NATS_CLUSTER_ID
-              value: tour
+              value: 'tour'
             - name: NATS_CLIENT_ID
               valueFrom:
                 fieldRef:

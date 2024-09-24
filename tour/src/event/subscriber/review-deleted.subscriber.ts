@@ -23,7 +23,7 @@ export class ReviewDeletedSubscriber extends CoreSubscriber<ReviewDeletedEvent> 
     message: Message,
   ): Promise<void> {
     try {
-      const { id, sequence } = data;
+      const { id, sequence, ratingsAverage, ratingsCount } = data;
 
       const tour: Nullable<TourDocument> = await Tour.findOne({
         _id: data.tour.id,
@@ -48,13 +48,10 @@ export class ReviewDeletedSubscriber extends CoreSubscriber<ReviewDeletedEvent> 
         );
       }
 
-      const oldRatingSum = tour.ratingCount * tour.ratingAverage;
-      const newRatingSum = oldRatingSum - review.rating;
-
-      tour.ratingCount -= 1;
-      tour.ratingAverage = !tour.ratingCount
-        ? 0
-        : newRatingSum / tour.ratingCount;
+      tour.set({
+        ratingsAverage,
+        ratingsCount,
+      });
 
       await tour.save({ validateModifiedOnly: true });
 

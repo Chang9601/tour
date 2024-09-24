@@ -23,9 +23,13 @@ export class ReviewUpdatedSubscriber extends CoreSubscriber<ReviewUpdatedEvent> 
     message: Message,
   ): Promise<void> {
     try {
-      const { id, rating: newRating, sequence } = data;
-
-      console.log(data);
+      const {
+        id,
+        rating: newRating,
+        ratingsAverage,
+        ratingsCount,
+        sequence,
+      } = data;
 
       const tour: Nullable<TourDocument> = await Tour.findOne({
         _id: data.tour.id,
@@ -50,11 +54,11 @@ export class ReviewUpdatedSubscriber extends CoreSubscriber<ReviewUpdatedEvent> 
         );
       }
 
-      const oldRating = review.rating;
-      const oldRatingSum = tour.ratingCount * tour.ratingAverage;
-      const newRatingSum = oldRatingSum - oldRating + newRating;
+      tour.set({
+        ratingsAverage,
+        ratingsCount,
+      });
 
-      tour.ratingAverage = newRatingSum / tour.ratingCount;
       await tour.save({ validateModifiedOnly: true });
 
       review.rating = newRating;

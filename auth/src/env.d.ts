@@ -5,8 +5,8 @@ declare global {
       PORT: number;
       MONGO_URI: string;
 
-      COOKIE_ACCESS_EXPIRATION: number;
-      COOKIE_REFRESH_EXPIRATION: number;
+      REDIS_HOST: string;
+      REDIS_PORT: number;
 
       JWT_ACCESS_SECRET: string;
       JWT_REFRESH_SECRET: string;
@@ -19,20 +19,10 @@ declare global {
       NODEMAILER_USER: string;
       NODEMAILER_PASS: string;
 
-      GOOGLE_OAUTH2_AUTHORIZATION_GRANT: string;
-      GOOGLE_OAUTH2_AUTHORIZATION_URI: string;
-      GOOGLE_OAUTH2_TOKEN_URI: string;
-      GOOGLE_OAUTH2_USER_INFO_URI: string;
-      GOOGLE_OAUTH2_SCOPE: string;
       GOOGLE_OAUTH2_CLIENT_ID: string;
       GOOGLE_OAUTH2_CLIENT_SECRET: string;
       GOOGLE_OAUTH2_REDIRECT_URI: string;
 
-      NAVER_OAUTH2_AUTHORIZATION_GRANT: string;
-      NAVER_OAUTH2_AUTHORIZATION_URI: string;
-      NAVER_OAUTH2_TOKEN_URI: string;
-      NAVER_OAUTH2_USER_INFO_URI: string;
-      NAVER_OAUTH2_SCOPE: string;
       NAVER_OAUTH2_CLIENT_ID: string;
       NAVER_OAUTH2_CLIENT_SECRET: string;
       NAVER_OAUTH2_REDIRECT_URI: string;

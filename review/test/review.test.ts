@@ -15,11 +15,7 @@ let tour: any;
 
 describe('리뷰 API 테스트', () => {
   beforeAll(async () => {
-    reviewApplication = new ReviewApplication(
-      [new ReviewController()],
-      process.env.PORT,
-      process.env.MONGO_URI
-    );
+    reviewApplication = new ReviewApplication([new ReviewController()]);
 
     await mongoose.connection.db.createCollection('tours');
     tour = await mongoose.connection.db.collection('tours').insertOne({
@@ -216,7 +212,7 @@ describe('리뷰 API 테스트', () => {
         .expect(200);
 
       expect(updateMyReview.body.data.title).toBe(
-        '남산서울타워에서 환상적인 경치!'
+        '남산서울타워에서 환상적인 경치!',
       );
       expect(updateMyReview.body.data.rating).toBe(4);
     });
@@ -352,7 +348,7 @@ describe('리뷰 API 테스트', () => {
         .expect(200);
 
       expect(updateReview.body.data.title).toBe(
-        '남산서울타워에서 환상적인 경치!'
+        '남산서울타워에서 환상적인 경치!',
       );
       expect(updateReview.body.data.rating).toBe(4);
     });

@@ -12,7 +12,7 @@ interface BookingAttribute {
   userId: string;
 }
 
-interface BookingDocument extends mongoose.Document {
+export interface BookingDocument extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
   expiration: Date;
   status: BookingStatus;
@@ -21,22 +21,34 @@ interface BookingDocument extends mongoose.Document {
   sequence: number;
 }
 
-interface BookingModel extends mongoose.Model<BookingDocument> {
+export interface BookingModel extends mongoose.Model<BookingDocument> {
   build(attrs: BookingAttribute): Promise<BookingDocument>;
 }
 
+type BookingFindQuery = mongoose.Query<
+  BookingDocument | BookingDocument[],
+  BookingDocument,
+  {},
+  BookingDocument,
+  'find' | 'findOne'
+>;
+
 const bookingSchema = new mongoose.Schema(
   {
-    expiration: mongoose.Schema.Types.Date,
+    expiration: {
+      type: Date,
+      required: [true, '만료 기간이 있어야 합니다.'],
+    },
     status: {
       type: String,
-      required: true,
       enum: Object.values(BookingStatus),
       default: BookingStatus.Pending,
+      required: [true, '예약 상태가 있어야 합니다.'],
     },
     tour: {
       type: mongoose.Schema.ObjectId,
       ref: 'Tour',
+      requird: [true, '예약 도큐먼트가 있어야 합니다.'],
     },
     userId: {
       type: mongoose.Schema.ObjectId,
@@ -68,6 +80,16 @@ const bookingSchema = new mongoose.Schema(
   },
 );
 
+bookingSchema.pre(/^find/, function (this: BookingFindQuery, next) {
+  this.find({ status: { $ne: BookingStatus.Cancelled } });
+  /* find() 계열 메서드에서 tour를 채운다. */
+  this.populate({
+    path: 'tour',
+  });
+
+  next();
+});
+
 bookingSchema.set('versionKey', 'sequence');
 bookingSchema.plugin(updateIfCurrentPlugin);
 
@@ -75,9 +97,7 @@ bookingSchema.statics.build = async function (attrs: BookingAttribute) {
   return await Booking.create(attrs);
 };
 
-const Booking = mongoose.model<BookingDocument, BookingModel>(
+export const Booking = mongoose.model<BookingDocument, BookingModel>(
   'Booking',
   bookingSchema,
 );
-
-export { Booking, BookingModel, BookingDocument };
