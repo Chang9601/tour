@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tour-redis
+spec:
+  selector:
+    app: tour-redis
+  ports:
+    - name: tour-redis
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP

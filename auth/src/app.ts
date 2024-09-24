@@ -1,10 +1,12 @@
 import fs from 'fs';
 import { Server } from 'http';
+import path from 'path';
 
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express from 'express';
+import cron from 'node-cron';
+import express, { NextFunction, Request, Response } from 'express';
 import mongoSanitize from 'express-mongo-sanitize';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
@@ -14,38 +16,58 @@ import morgan from 'morgan';
 import xss from 'xss-clean';
 
 import {
+  Code,
   CoreApplication,
   CoreController,
   errorMiddleware,
+  natsInstance,
+  PageNotFoundError,
 } from '@whooatour/common';
-import path from 'path';
 
 export class AuthApplication implements CoreApplication {
   public readonly app: express.Application;
   public readonly port: number;
   public readonly uri: string;
 
-  constructor(controllers: CoreController[], port: number, uri: string) {
+  constructor(controllers: CoreController[]) {
     this.app = express();
-    this.port = port;
-    this.uri = uri;
+    this.port = process.env.PORT;
+    this.uri = process.env.MONGO_URI;
 
     this.makeDirectory();
+    this.connectToMessagingSystem();
     this.connectToDatabase();
     this.initializeMiddlewares();
     this.initializeControllers(controllers);
     this.initializeErrorHandler();
+    this.runCronJobs();
   }
 
   public listen(): Server {
     const server = this.app.listen(this.port, () => {
       console.log(`포트 ${this.port}에서 서버가 실행 중 입니다.`);
     });
+
     return server;
   }
 
   public async connectToMessagingSystem(): Promise<void> {
-    throw new Error('Method not implemented.');
+    await natsInstance.connect(
+      process.env.NATS_CLUSTER_ID,
+      process.env.NATS_CLIENT_ID,
+      process.env.NATS_URL,
+    );
+    /*
+     * 공통 모듈에서 예외를 적용하면 한 서비스로 인해 모든 서비스가 종료될 수 있다.
+     * 따라서, 여기서 예외를 처리한다.
+     */
+    natsInstance.client.on('close', () => {
+      console.log('NATS 연결이 종료되었습니다.');
+      process.exit();
+    });
+
+    process.on('SIGINT', () => natsInstance.client.close());
+    process.on('SIGTERM', () => natsInstance.client.close());
   }
 
   public async connectToDatabase(): Promise<void> {
@@ -54,10 +76,31 @@ export class AuthApplication implements CoreApplication {
     console.log('MongoDB에 연결되었습니다.');
   }
 
+  public initializeControllers(controllers: CoreController[]): void {
+    controllers.forEach((controller) => {
+      this.app.use(controller.router);
+    });
+
+    this.app.all(
+      '*',
+      (request: Request, response: Response, next: NextFunction) => {
+        next(
+          new PageNotFoundError(
+            Code.NOT_FOUND,
+            `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+          ),
+        );
+      },
+    );
+  }
+
+  public initializeErrorHandler(): void {
+    this.app.use(errorMiddleware);
+  }
+
   public initializeMiddlewares(): void {
-    // TODO: Kubernetes 및 express-rate-limit 패키지 오류 해결.
     // https://github.com/express-rate-limit/express-rate-limit/wiki/Troubleshooting-Proxy-Issues
-    // this.express.set('trust proxy', true);
+    this.app.set('trust proxy', 1);
 
     /* 보안 HTTP 헤더를 설정한다. */
     this.app.use(helmet());
@@ -85,7 +128,8 @@ export class AuthApplication implements CoreApplication {
 
     /*
      * XSS 공격에 대비한 데이터 위생처리를 적용한다.
-     * 사용자 입력에서 악성 HTML 코드를 제거한다. 즉, HTML 기호를 변환하여 XSS 공격을 방지한다.
+     * 사용자 입력에서 악성 HTML 코드를 제거한다.
+     * 즉, HTML 기호를 변환하여 XSS 공격을 방지한다.
      */
     this.app.use(xss());
 
@@ -93,23 +137,12 @@ export class AuthApplication implements CoreApplication {
     this.app.use(
       hpp({
         /* 쿼리 문자열에서 중복을 허용하는 화이트 리스트 */
-        whitelist: ['name'],
+        whitelist: ['name', 'email', 'userRole'],
       }),
     );
 
     this.app.use(bodyParser.json());
     this.app.use(cors());
-    /*
-     * cookie-parser 모듈은 요청에 있는 쿠키를 해석하여 req.cookies 객체로 만드는 미들웨어이다.
-     * 유효기간이 지난 쿠키는 자동으로 거른다.
-     * 인자로 비밀키를 넣어줄 수 있는데 서명된 쿠키가 있는 경우 제공한 비밀키를 통해 해당 쿠키가 내 서버에서 만든 쿠키임을 검증할 수 있다.
-     * 쿠키는 클라이언트에서 위조하기 쉽기 때문에 비밀키를 통해 만들어낸 서명을 쿠키 값 뒤에 붙이는데 서명이 붙은 쿠키는 name=chang.sign 과 같은 모양이다.
-     * 서명된 쿠키는 req.cookie 객체대신 req.signedCookies 객체에 들어간다.
-     * cookie-parser 모듈은 쿠키를 생성할 때 쓰는게 아니라 쿠키를 해석하여 req 객체에 넣어주는 역할이다.
-     * 쿠키를 생성/제거할 때는 res.cookie, res.clearCookie 메서드를 사용한다.
-     * signed 옵션을 true 로 설정 시 쿠키 뒤에 서명이 붙는다.
-     * 서버에서 만든 쿠키임을 검증할 수 있으므로 대부분의 경우 서명 옵션을 활성화하는 것이 좋다.
-     */
     this.app.use(cookieParser());
 
     if (process.env.NODE_ENV === 'development') {
@@ -119,21 +152,25 @@ export class AuthApplication implements CoreApplication {
     this.app.use(express.static(path.join(__dirname, './', 'public')));
   }
 
-  // TODO: 404 페이지 경로는 하나로 합치기.
-  public initializeControllers(controllers: CoreController[]): void {
-    controllers.forEach((controller) => {
-      this.app.use(controller.router);
-    });
-  }
-
-  public initializeErrorHandler(): void {
-    this.app.use(errorMiddleware);
-  }
-
   public makeDirectory(): void {
     if (!fs.existsSync(process.env.IMAGE_DIRECTORY_PATH)) {
       console.error('사용자 이미지 디렉터리가 존재하지 않으므로 생성합니다.');
       fs.mkdirSync(process.env.IMAGE_DIRECTORY_PATH, { recursive: true });
     }
+  }
+
+  public runCronJobs(): void {
+    cron.schedule(
+      '* * * * *',
+      async () => {
+        await mongoose.connection.db
+          .collection('users')
+          .deleteMany({ active: false });
+      },
+      {
+        scheduled: true,
+        timezone: 'Asia/Seoul',
+      },
+    );
   }
 }

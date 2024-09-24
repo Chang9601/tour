@@ -2,30 +2,40 @@ import { Server } from 'http';
 
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
-import express from 'express';
+import cors from 'cors';
+import express, { NextFunction, Request, Response } from 'express';
+import mongoSanitize from 'express-mongo-sanitize';
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet';
+import hpp from 'hpp';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
-import hpp from 'hpp';
+import xss from 'xss-clean';
 
 import {
   CoreController,
   CoreApplication,
   errorMiddleware,
   natsInstance,
+  PageNotFoundError,
+  Code,
 } from '@whooatour/common';
 
-import { TourCreatedSubscriber } from './event/subscriber/tour-created.subscriber';
 import { ExpirationCompletedSubscriber } from './event/subscriber/expiration-completed.subscriber';
+import { PaymentMadeSubscriber } from './event/subscriber/payment-made.subscriber';
+import { TourCreatedSubscriber } from './event/subscriber/tour-created.subscriber';
+import { UserBannedSubscriber } from './event/subscriber/user-banned.subscriber';
+import { UserUnbannedSubscriber } from './event/subscriber/user-unbanned.subscriber';
 
 export class BookingApplication implements CoreApplication {
   public readonly app: express.Application;
   public readonly port: number;
   public readonly uri: string;
 
-  constructor(controllers: CoreController[], port: number, uri: string) {
+  constructor(controllers: CoreController[]) {
     this.app = express();
-    this.port = port;
-    this.uri = uri;
+    this.port = process.env.PORT;
+    this.uri = process.env.MONGO_URI;
 
     this.connectToMessagingSystem();
     this.connectToDatabase();
@@ -61,7 +71,13 @@ export class BookingApplication implements CoreApplication {
     process.on('SIGTERM', () => natsInstance.client.close());
 
     new ExpirationCompletedSubscriber(natsInstance.client).subscribe();
+
+    new PaymentMadeSubscriber(natsInstance.client).subscribe();
+
     new TourCreatedSubscriber(natsInstance.client).subscribe();
+
+    new UserBannedSubscriber(natsInstance.client).subscribe();
+    new UserUnbannedSubscriber(natsInstance.client).subscribe();
   }
 
   public async connectToDatabase(): Promise<void> {
@@ -70,9 +86,45 @@ export class BookingApplication implements CoreApplication {
     console.log('MongoDB에 연결되었습니다.');
   }
 
+  public initializeControllers(controllers: CoreController[]): void {
+    controllers.forEach((controller) => {
+      this.app.use(controller.router);
+    });
+
+    this.app.all(
+      '*',
+      (request: Request, response: Response, next: NextFunction) => {
+        next(
+          new PageNotFoundError(
+            Code.NOT_FOUND,
+            `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+          ),
+        );
+      },
+    );
+  }
+
+  public initializeErrorHandler(): void {
+    this.app.use(errorMiddleware);
+  }
+
   public initializeMiddlewares(): void {
-    this.app.use(bodyParser.json());
-    this.app.use(cookieParser());
+    this.app.set('trust proxy', 1);
+
+    this.app.use(helmet());
+
+    const limiter = rateLimit({
+      max: 100,
+      windowMs: 60 * 60 * 1000,
+      message:
+        '해당 IP 주소에서 너무 많은 요청을 보냈습니다. 1시간 후에 다시 시도하세요.',
+    });
+
+    this.app.use('/api', limiter);
+
+    this.app.use(mongoSanitize());
+
+    this.app.use(xss());
 
     this.app.use(
       hpp({
@@ -80,18 +132,12 @@ export class BookingApplication implements CoreApplication {
       }),
     );
 
+    this.app.use(bodyParser.json());
+    this.app.use(cors());
+    this.app.use(cookieParser());
+
     if (process.env.NODE_ENV === 'development') {
       this.app.use(morgan('dev'));
     }
-  }
-
-  public initializeControllers(controllers: CoreController[]): void {
-    controllers.forEach((controller) => {
-      this.app.use(controller.router);
-    });
-  }
-
-  public initializeErrorHandler(): void {
-    this.app.use(errorMiddleware);
   }
 }

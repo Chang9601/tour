@@ -17,11 +17,7 @@ import { validateEnv } from './util/env-validator';
 
 validateEnv();
 
-const reviewApplication = new ReviewApplication(
-  [new ReviewController()],
-  process.env.PORT,
-  process.env.MONGO_URI
-);
+const reviewApplication = new ReviewApplication([new ReviewController()]);
 
 const server = reviewApplication.listen();
 

@@ -1,0 +1,18 @@
+name: review-ci
+
+on:
+  pull_request:
+    paths:
+      - 'review/**'
+
+jobs:
+  build:
+    runs-on: ubuntu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.13.0'
+      - run: cd auth
+      - run: npm ci
+      - run: npm run test:ci

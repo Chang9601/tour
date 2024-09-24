@@ -20,21 +20,15 @@ spec:
               value: 'development'
             - name: PORT
               value: '3000'
-            - name: COOKIE_ACCESS_EXPIRATION
-              value: '1'
-            - name: COOKIE_REFRESH_EXPIRATION
-              value: '30'
-            - name: JWT_ACCESS_SECRET
-              value: 'personal-tour-project-in-nodejs-typescript-access'
-            - name: JWT_REFRESH_SECRET
-              value: 'personal-tour-project-in-nodejs-typescript-refresh'
+            - name: MONGO_URI
+              value: 'mongodb://expiration-mongo:27017/expiration'
+            - name: REDIS_HOST
+              value: 'expiration-redis'
             - name: NATS_URL
               value: 'http://nats:4222'
             - name: NATS_CLUSTER_ID
-              value: tour
+              value: 'tour'
             - name: NATS_CLIENT_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: REDIS_HOST
-              value: expiration-redis

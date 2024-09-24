@@ -11,11 +11,7 @@ let tour: any;
 
 describe('여행 API 테스트', () => {
   beforeAll(async () => {
-    tourApplication = new TourApplication(
-      [new TourController()],
-      process.env.PORT,
-      process.env.MONGO_URI,
-    );
+    tourApplication = new TourApplication([new TourController()]);
   });
 
   beforeEach(async () => {

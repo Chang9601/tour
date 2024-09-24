@@ -12,17 +12,16 @@ let credentials: any;
 
 describe('인증 API 테스트', () => {
   beforeAll(async () => {
-    authApplication = new AuthApplication(
-      [new UserController(), new AuthController()],
-      process.env.PORT,
-      process.env.MONGO_URI,
-    );
+    authApplication = new AuthApplication([
+      new UserController(),
+      new AuthController(),
+    ]);
   });
 
   beforeEach(async () => {
     user = {
-      name: '사용자1',
       email: 'user1@naver.com',
+      name: '사용자1',
       password: '12341234aA!',
       passwordConfirm: '12341234aA!',
       photo: 'none.jpg',

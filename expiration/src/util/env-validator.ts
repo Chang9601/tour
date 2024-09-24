@@ -1,4 +1,4 @@
-import { cleanEnv, num, port, str } from 'envalid';
+import { cleanEnv, port, str } from 'envalid';
 
 export function validateEnv() {
   cleanEnv(process.env, {
@@ -6,9 +6,10 @@ export function validateEnv() {
     PORT: port(),
     MONGO_URI: str(),
 
-    JWT_ACCESS_SECRET: str(),
-    JWT_REFRESH_SECRET: str(),
+    REDIS_HOST: str(),
 
-    EXPIRATION_WINDOW: num(),
+    NATS_URL: str(),
+    NATS_CLUSTER_ID: str(),
+    NATS_CLIENT_ID: str(),
   });
 }

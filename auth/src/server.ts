@@ -19,11 +19,11 @@ import { validateEnv } from './util/env-validator';
 
 validateEnv();
 
-const authApplication = new AuthApplication(
-  [new AuthController(), new OAuth2Controller(), new UserController()],
-  process.env.PORT,
-  process.env.MONGO_URI,
-);
+const authApplication = new AuthApplication([
+  new AuthController(),
+  new OAuth2Controller(),
+  new UserController(),
+]);
 
 const server = authApplication.listen();
 

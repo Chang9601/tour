@@ -8,6 +8,7 @@
     "start:dev": "ts-node src/server.ts",
     "start:prod": "NODE_ENV=production ts-node src/server.ts",
     "test": "jest --watchAll --no-cache",
+    "test:ci": "jest",
     "debug": "ndb server.ts"
   },
   "jest": {
@@ -15,6 +16,9 @@
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "./test/setup.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/dist/"
     ],
     "collectCoverage": true,
     "collectCoverageFrom": [
@@ -24,7 +28,7 @@
   "author": "이창섭",
   "license": "ISC",
   "dependencies": {
-    "@whooatour/common": "^1.0.96",
+    "@whooatour/common": "^1.0.120",
     "axios": "^1.7.5",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
@@ -38,10 +42,12 @@
     "express-validator": "^7.1.0",
     "helmet": "^7.1.0",
     "hpp": "^0.2.3",
+    "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.3",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.9.13",
     "validator": "^13.12.0",
     "xss-clean": "^0.1.4"
@@ -58,6 +64,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.12.8",
+    "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.15",
     "@types/supertest": "^6.0.2",
     "@types/typescript": "^2.0.0",

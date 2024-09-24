@@ -5,8 +5,8 @@ declare global {
       PORT: number;
       MONGO_URI: string;
 
-      COOKIE_ACCESS_EXPIRATION: number;
-      COOKIE_REFRESH_EXPIRATION: number;
+      REDIS_HOST: string;
+      REDIS_PORT: number;
 
       JWT_ACCESS_SECRET: string;
       JWT_REFRESH_SECRET: string;

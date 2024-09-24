@@ -1,7 +1,11 @@
 import { ValidationChain, checkSchema } from 'express-validator';
 import { RunnableValidationChains } from 'express-validator/lib/middlewares/schema';
 
-import { Code } from '@whooatour/common';
+import {
+  Code,
+  isAllowedFileExtension,
+  NotAllowedFileExtensionError,
+} from '@whooatour/common';
 
 import { PasswordMismatchError } from '../error/password-mismatch.error';
 
@@ -37,7 +41,6 @@ export class UserValidator {
                 throw new PasswordMismatchError(
                   Code.BAD_REQUEST,
                   '비밀번호가 일치하지 않습니다.',
-                  true,
                 );
               }
 
@@ -45,10 +48,18 @@ export class UserValidator {
             },
           },
         },
-        // TODO: 파일 확장자 검증 함수 필요.
         photo: {
           optional: true,
-          isString: { errorMessage: '사진이 있어야 합니다.' },
+          custom: {
+            options: (value) => {
+              if (!isAllowedFileExtension(value)) {
+                throw new NotAllowedFileExtensionError(
+                  Code.BAD_REQUEST,
+                  '허용되지 않는 파일 확장자입니다.',
+                );
+              }
+            },
+          },
         },
       },
       ['body'],

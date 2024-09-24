@@ -6,8 +6,8 @@ export function validateEnv() {
     PORT: port(),
     MONGO_URI: str(),
 
-    COOKIE_ACCESS_EXPIRATION: num(),
-    COOKIE_REFRESH_EXPIRATION: num(),
+    REDIS_HOST: str(),
+    REDIS_PORT: port(),
 
     JWT_ACCESS_SECRET: str(),
     JWT_REFRESH_SECRET: str(),
@@ -20,19 +20,10 @@ export function validateEnv() {
     NODEMAILER_USER: str(),
     NODEMAILER_PASS: str(),
 
-    GOOGLE_OAUTH2_AUTHORIZATION_GRANT: str(),
-    GOOGLE_OAUTH2_AUTHORIZATION_URI: str(),
-    GOOGLE_OAUTH2_TOKEN_URI: str(),
-    GOOGLE_OAUTH2_USER_INFO_URI: str(),
-    GOOGLE_OAUTH2_SCOPE: str(),
     GOOGLE_OAUTH2_CLIENT_ID: str(),
     GOOGLE_OAUTH2_CLIENT_SECRET: str(),
     GOOGLE_OAUTH2_REDIRECT_URI: str(),
 
-    NAVER_OAUTH2_AUTHORIZATION_URI: str(),
-    NAVER_OAUTH2_TOKEN_URI: str(),
-    NAVER_OAUTH2_USER_INFO_URI: str(),
-    NAVER_OAUTH2_SCOPE: str(),
     NAVER_OAUTH2_CLIENT_ID: str(),
     NAVER_OAUTH2_CLIENT_SECRET: str(),
     NAVER_OAUTH2_REDIRECT_URI: str(),
