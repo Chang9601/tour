@@ -63,8 +63,8 @@ export class TourApplication implements CoreApplication {
     process.on('SIGINT', () => natsInstance.client.close());
     process.on('SIGTERM', () => natsInstance.client.close());
 
-    new BookingMadeSubscriber(natsInstance.client).subscribe();
     new BookingCancelledSubscriber(natsInstance.client).subscribe();
+    new BookingMadeSubscriber(natsInstance.client).subscribe();
 
     new ReviewCreatedSubscriber(natsInstance.client).subscribe();
     new ReviewDeletedSubscriber(natsInstance.client).subscribe();

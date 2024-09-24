@@ -19,6 +19,10 @@ build:
       context: expiration
       docker:
         dockerfile: Dockerfile
+    - image: csup96/tour-payment
+      context: payment
+      docker:
+        dockerfile: Dockerfile
     - image: csup96/tour-review
       context: review
       docker:

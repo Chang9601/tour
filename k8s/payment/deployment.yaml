@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: booking
+  name: payment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: booking
+      app: payment
   template:
     metadata:
       labels:
-        app: booking
+        app: payment
     spec:
       containers:
-        - name: booking
-          image: csup96/tour-booking
+        - name: payment
+          image: csup96/tour-payment
           env:
             - name: NODE_ENV
               value: 'development'
             - name: PORT
               value: '3000'
             - name: MONGO_URI
-              value: 'mongodb://booking-mongo:27017/booking'
+              value: 'mongodb://payment-mongo:27017/payment'
             - name: COOKIE_ACCESS_EXPIRATION
               value: '1'
             - name: COOKIE_REFRESH_EXPIRATION
@@ -30,8 +30,16 @@ spec:
               value: 'personal-tour-project-in-nodejs-typescript-access'
             - name: JWT_REFRESH_SECRET
               value: 'personal-tour-project-in-nodejs-typescript-refresh'
-            - name: EXPIRATION_WINDOW
-              value: '60'
+            - name: NODEMAILER_HOST
+              value: 'sandbox.smtp.mailtrap.io'
+            - name: NODEMAILER_PORT
+              value: '2525'
+            - name: NODEMAILER_USER
+              value: 'c3518266542222'
+            - name: NODEMAILER_PASS
+              value: '7eac6749a5738c'
+            - name: STRIPE_SECRET_KEY
+              value:
             - name: NATS_URL
               value: 'http://nats:4222'
             - name: NATS_CLUSTER_ID

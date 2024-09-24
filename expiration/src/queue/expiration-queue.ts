@@ -1,7 +1,9 @@
-import { natsInstance } from '@whooatour/common';
 import Queue from 'bull';
-import { ExpirationCompletedPublisher } from 'event/publisher/expiration-completed.publisher';
 import mongoose from 'mongoose';
+
+import { natsInstance } from '@whooatour/common';
+
+import { ExpirationCompletedPublisher } from '../event/publisher/expiration-completed.publisher';
 
 type BookingPayload = {
   bookingId: mongoose.Types.ObjectId;

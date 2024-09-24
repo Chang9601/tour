@@ -31,11 +31,18 @@ spec:
                 name: auth
                 port:
                   number: 3000
-          - path: /api/v1/booking/?(.*)
+          - path: /api/v1/bookings/?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
                 name: booking
+                port:
+                  number: 3000
+          - path: /api/v1/payments/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment
                 port:
                   number: 3000
           - path: /api/v1/tours/?(.*)

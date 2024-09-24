@@ -22,31 +22,35 @@ export class ExpirationCompletedSubscriber extends CoreSubscriber<ExpirationComp
     data: ExpirationCompletedEvent['data'],
     message: Message,
   ): Promise<void> {
-    const booking = await Booking.findOne({ _id: data.bookingId }).populate(
-      'tour',
-    );
-
-    if (!booking) {
-      throw new BookingNotFoundError(
-        Code.NOT_FOUND,
-        '아이디에 해당하는 예약이 존재하지 않습니다.',
+    try {
+      const booking = await Booking.findOne({ _id: data.bookingId }).populate(
+        'tour',
       );
+
+      if (!booking) {
+        throw new BookingNotFoundError(
+          Code.NOT_FOUND,
+          '아이디에 해당하는 예약이 존재하지 않습니다.',
+        );
+      }
+
+      booking.set({
+        status: BookingStatus.Cancelled,
+      });
+
+      await booking.save();
+
+      await new BookingCancelledPublisher(natsInstance.client).publish({
+        id: booking.id,
+        tour: {
+          id: booking.tour.id,
+        },
+        sequence: booking.sequence,
+      });
+
+      message.ack();
+    } catch (error) {
+      console.error(error);
     }
-
-    booking.set({
-      status: BookingStatus.Cancelled,
-    });
-
-    await booking.save();
-
-    await new BookingCancelledPublisher(natsInstance.client).publish({
-      id: booking.id,
-      tour: {
-        id: booking.tour.id,
-      },
-      sequence: booking.sequence,
-    });
-
-    message.ack();
   }
 }

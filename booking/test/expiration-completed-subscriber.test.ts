@@ -88,7 +88,7 @@ describe('만료 완료 이벤트 구독자 테스트', () => {
           (natsInstance.client.publish as jest.Mock).mock.calls[0][1],
         );
 
-        expect(eventData.id).toBe(booking.id);
+        expect(eventData.id).toBe(booking._id);
         expect(natsInstance.client.publish).toHaveBeenCalled();
       });
     });

@@ -110,6 +110,7 @@ export class BookingController implements CoreController {
     },
   );
 
+  // TODO: 예약 아이디는 민감한 정보인데 경로 매개변수가 아니라 본문에 넣는 것이 맞지않나?
   private getMyBooking = catchAsync(
     async (
       request: RequestWithUser,
@@ -193,8 +194,10 @@ export class BookingController implements CoreController {
       }
 
       const expiration = new Date();
+
+      /* 환경변수가 원하는 숫자대로 해석되지 않아서 강제로 숫자로 변경한다. */
       expiration.setSeconds(
-        expiration.getSeconds() + process.env.EXPIRATION_WINDOW,
+        expiration.getSeconds() + Number(process.env.EXPIRATION_WINDOW),
       );
 
       request.body.expiration = expiration;
