@@ -4,22 +4,21 @@ import {
   BookingStatus,
   Code,
   CoreSubscriber,
-  ExpirationCompletedEvent,
   natsInstance,
+  PaymentMadeEvent,
   Subject,
 } from '@whooatour/common';
 
 import { BookingNotFoundError } from '../../error/booking-not-found.error';
-import { BookingCancelledPublisher } from '../../event/publisher/booking-cancelled.publisher';
 import { Booking } from '../../model/booking.model';
 import { queueGroup } from '../queue-group';
 
-export class ExpirationCompletedSubscriber extends CoreSubscriber<ExpirationCompletedEvent> {
-  readonly subject = Subject.ExpirationCompleted;
+export class PaymentMadeSubscriber extends CoreSubscriber<PaymentMadeEvent> {
+  readonly subject = Subject.PaymentMade;
   queueGroup = queueGroup;
 
   async onMessage(
-    data: ExpirationCompletedEvent['data'],
+    data: PaymentMadeEvent['data'],
     message: Message,
   ): Promise<void> {
     try {
@@ -34,24 +33,11 @@ export class ExpirationCompletedSubscriber extends CoreSubscriber<ExpirationComp
         );
       }
 
-      /* 지불된 예약은 취소하지 않는다. */
-      if (booking.status === BookingStatus.Completed) {
-        return message.ack();
-      }
-
       booking.set({
-        status: BookingStatus.Cancelled,
+        status: BookingStatus.Completed,
       });
 
       await booking.save();
-
-      await new BookingCancelledPublisher(natsInstance.client).publish({
-        id: booking.id,
-        tour: {
-          id: booking.tour.id,
-        },
-        sequence: booking.sequence,
-      });
 
       message.ack();
     } catch (error) {

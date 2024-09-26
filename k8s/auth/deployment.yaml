@@ -30,6 +30,8 @@ spec:
               value: 'personal-tour-project-in-nodejs-typescript-access'
             - name: JWT_REFRESH_SECRET
               value: 'personal-tour-project-in-nodejs-typescript-refresh'
+            - name: IMAGE_DIRECTORY_PATH
+              value: '/opt/express_app/app/public/image/users'
             - name: NODEMAILER_HOST
               value: 'sandbox.smtp.mailtrap.io'
             - name: NODEMAILER_PORT

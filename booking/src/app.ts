@@ -14,8 +14,9 @@ import {
   natsInstance,
 } from '@whooatour/common';
 
-import { TourCreatedSubscriber } from './event/subscriber/tour-created.subscriber';
 import { ExpirationCompletedSubscriber } from './event/subscriber/expiration-completed.subscriber';
+import { PaymentMadeSubscriber } from './event/subscriber/payment-made.subscriber';
+import { TourCreatedSubscriber } from './event/subscriber/tour-created.subscriber';
 
 export class BookingApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -61,6 +62,7 @@ export class BookingApplication implements CoreApplication {
     process.on('SIGTERM', () => natsInstance.client.close());
 
     new ExpirationCompletedSubscriber(natsInstance.client).subscribe();
+    new PaymentMadeSubscriber(natsInstance.client).subscribe();
     new TourCreatedSubscriber(natsInstance.client).subscribe();
   }
 

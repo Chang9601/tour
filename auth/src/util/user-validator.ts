@@ -5,6 +5,7 @@ import { Code } from '@whooatour/common';
 
 import { PasswordMismatchError } from '../error/password-mismatch.error';
 
+// TODO: 파일 확장자 여과
 export class UserValidator {
   public static create(): RunnableValidationChains<ValidationChain> {
     return checkSchema(
@@ -45,7 +46,6 @@ export class UserValidator {
             },
           },
         },
-        // TODO: 파일 확장자 검증 함수 필요.
         photo: {
           optional: true,
           isString: { errorMessage: '사진이 있어야 합니다.' },

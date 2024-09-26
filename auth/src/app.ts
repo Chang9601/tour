@@ -119,7 +119,6 @@ export class AuthApplication implements CoreApplication {
     this.app.use(express.static(path.join(__dirname, './', 'public')));
   }
 
-  // TODO: 404 페이지 경로는 하나로 합치기.
   public initializeControllers(controllers: CoreController[]): void {
     controllers.forEach((controller) => {
       this.app.use(controller.router);

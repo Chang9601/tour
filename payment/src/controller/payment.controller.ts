@@ -10,17 +10,23 @@ import {
   CoreError,
   BookingStatus,
   UnauthorizedUserError,
+  natsInstance,
+  authorizationMiddleware,
+  UserRole,
 } from '@whooatour/common';
 
 import { BookingCancelledError } from '../error/booking-cancelled.error';
 import { BookingNotFoundError } from '../error/booking-not-found.error';
+import { PaymentMadePublisher } from '../event/publisher/payment-made.publisher';
 import { Booking } from '../model/booking.model';
+import { Payment } from '../model/payment.model';
+import { PaymentRepository } from '../repository/booking.repository';
 import { stripe } from '../stripe/stripe';
 
 export class PaymentController implements CoreController {
   public readonly path = '/api/v1/payments';
   public readonly router = Router();
-  public readonly repository = null;
+  public readonly repository = new PaymentRepository(Payment);
 
   constructor() {
     this.initializeRoutes();
@@ -29,6 +35,11 @@ export class PaymentController implements CoreController {
   public initializeRoutes = (): void => {
     this.router
       .route(`${this.path}`)
+      .get(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.getPayments,
+      )
       .post(authenticationMiddleware, this.makeMyPayment);
 
     this.router.all('*', this.handleRoutes);
@@ -47,6 +58,25 @@ export class PaymentController implements CoreController {
 
     next(error);
   };
+
+  private getPayments = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const payments = await this.repository.findAll();
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        payments,
+        '결제 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
 
   private makeMyPayment = catchAsync(
     async (
@@ -86,18 +116,30 @@ export class PaymentController implements CoreController {
         );
       }
 
-      await stripe.charges.create({
+      const charge = await stripe.charges.create({
         currency: 'krw',
         amount: booking.price,
         source: token,
       });
 
+      request.body.bookingId = bookingId;
+      request.body.chargeId = charge.id;
+
+      const payment = await this.repository.create(request.body);
+
       const success = ApiResponse.handleSuccess(
         Code.CREATED.code,
         Code.CREATED.message,
-        booking,
+        payment,
         '결제를 완료했습니다.',
       );
+
+      await new PaymentMadePublisher(natsInstance.client).publish({
+        id: payment.id,
+        bookingId: payment.bookingId,
+        chargeId: payment.chargeId,
+        sequence: payment.sequence,
+      });
 
       response.status(Code.OK.code).json(success);
     },

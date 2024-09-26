@@ -24,7 +24,7 @@
   "author": "이창섭",
   "license": "ISC",
   "dependencies": {
-    "@whooatour/common": "^1.0.96",
+    "@whooatour/common": "^1.0.97",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

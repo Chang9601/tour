@@ -25,6 +25,7 @@ import {
   sanitizeField,
   JwtType,
   mapRoleToEnum,
+  CoreError,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
@@ -45,9 +46,8 @@ export class UserController implements CoreController {
     this.initializeRoutes();
   }
 
-  // TODO: 인증 미들웨어 간소화.
   public initializeRoutes = (): void => {
-    this.router.route(`${this.path}`).get(authenticationMiddleware, this.getMe);
+    this.router.route(`${this.path}/current-user/:id`).get(this.getCurrentUser);
 
     this.router
       .route(`${this.path}/forget-password`)
@@ -61,6 +61,8 @@ export class UserController implements CoreController {
       .route(`${this.path}/update-password`)
       .patch(authenticationMiddleware, this.updateMyPassword);
 
+    this.router.route(this.path).get(authenticationMiddleware, this.getMe);
+
     this.router
       .route(this.path)
       .delete(authenticationMiddleware, this.deleteMe)
@@ -72,8 +74,6 @@ export class UserController implements CoreController {
         this.updateMe,
       )
       .post(...validationMiddleware(UserValidator.create()), this.createMe);
-
-    this.router.route(`${this.path}/current-user/:id`).get(this.getCurrentUser);
 
     /* 관리자 경로 */
     this.router
@@ -105,23 +105,26 @@ export class UserController implements CoreController {
         this.getUsers,
       );
 
-    // this.router.all('*', this.handleRoutes);
+    this.router.all('*', this.handleRoutes);
   };
 
-  // TODO: 추상 컨트롤러에서 구현.
-  // private handleRoutes = async (
-  //   request: Request,
-  //   response: Response,
-  //   next: NextFunction,
-  // ) => {
-  //   const error = {
-  //     codeAttr: Code.NOT_FOUND,
-  //     detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-  //     isOperational: true,
-  //   };
+  private handleRoutes = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const error: CoreError = {
+        codeAttribute: Code.NOT_FOUND,
+        detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+        isOperational: true,
+        name: 'PageNotFoundError',
+        message: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+      };
 
-  //   next(error);
-  // };
+      return next(error);
+    },
+  );
 
   private createMe = catchAsync(
     async (
@@ -133,13 +136,15 @@ export class UserController implements CoreController {
       const { email, name, password, photo, userRole } = request.body;
 
       const user = await this.repository.create({
-        name,
         email,
+        name,
         password,
         photo,
         userRole: mapRoleToEnum(userRole),
-        ...request.body, // TODO: 코드 개선
+        ...request.body,
       });
+
+      await EmailUtil.create(user.email, '').sendWelcome();
 
       const success = ApiResponse.handleSuccess(
         Code.CREATED.code,
@@ -170,11 +175,11 @@ export class UserController implements CoreController {
         '회원탈퇴 했습니다.',
       );
 
-      // TODO: 204일 경우 데이터 전송이 안된다.
       response.status(Code.OK.code).json(success);
     },
   );
 
+  // TODO: url
   private forgetMyPassword = catchAsync(
     async (
       request: Request,
@@ -211,8 +216,10 @@ export class UserController implements CoreController {
 
         response.status(Code.OK.code).json(success);
       } catch (error) {
-        user.passwordResetToken = user.passwordResetTokenExpiration = undefined;
-
+        user.set({
+          passwordResetToken: undefined,
+          passwordResetTokenExpiration: undefined,
+        });
         await user.save({ validateBeforeSave: false });
 
         return next(
@@ -228,7 +235,7 @@ export class UserController implements CoreController {
 
   private getCurrentUser = catchAsync(
     async (
-      request: RequestWithUser,
+      request: Request,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
@@ -281,28 +288,24 @@ export class UserController implements CoreController {
         passwordResetTokenExpiration: { $gt: Date.now() },
       });
 
-      // if (!user) {
-      //   return next(
-      //     new UserNotFoundError(
-      //       Code.NOT_FOUND,
-      //       '비밀번호 재설정 토큰이 만료되었거나 유효하지 않습니다.',
-      //     ),
-      //   );
-      // }
-
-      /* 2. 비밀번호 재변경 토큰이 만료되지 않았고 사용자가 존재한다면 비밀번호를 재설정한다. */
-      user.password = request.body.password;
-      user.passwordResetToken = user.passwordResetTokenExpiration = undefined;
+      /* 2. 비밀번호 재변경 토큰이 만료되지 않았고 사용자가 존재한다면 비밀번호와 비밀번호 수정 타임스탬프를 설정한다. */
+      user.set({
+        password: request.body.password,
+        passwordResetToken: undefined,
+        passwordResetTokenExpiration: undefined,
+        passwordUpdatedAt: Date.now(),
+      });
 
       /*
-       * 수정 시 여행(findOneAnddUpdate() 메서드)과 달리 save() 메서드를 사용한다.
+       * 수정 시 findOneAndUpdate() 메서드가 아니라 save() 메서드를 사용한다.
        * 유효성 검사와 비밀번호 암호화(e.g., 미들웨어)와 같은 작업을 실행해야 하기 때문이다.
        */
       await user.save();
 
-      /* 3. 비밀번호 변경 타임스탬프 필드를 수정한다. */
       const payload: JwtPayload = { id: user._id };
+
       const jwt: JwtBundle = JwtUtil.issue(payload);
+
       const cookies = [
         CookieUtil.set(
           JwtType.AccessToken,
@@ -324,7 +327,7 @@ export class UserController implements CoreController {
         ),
       ];
 
-      /* 4. 사용자를 로그인하고 쿠키를 전송한다. */
+      /* 3. 사용자를 로그인하고 쿠키를 전송한다. */
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
         Code.OK.message,
@@ -385,7 +388,6 @@ export class UserController implements CoreController {
       }
 
       /* 3. 사용자를 수정한다. */
-      // TODO: 더 간단한 방법?
       const user = await this.repository.update(
         { _id: request.user?.id },
         { ...field, updatedAt: Date.now() },
@@ -434,12 +436,16 @@ export class UserController implements CoreController {
       }
 
       /* 4. 비밀번호를 수정한다. */
-      user.password = newPassword;
+      user.set({
+        password: newPassword,
+      });
       await user.save();
 
       /* 5. 사용자를 로그인하고 쿠키를 전송한다. */
       const payload: JwtPayload = { id: user._id };
+
       const jwt: JwtBundle = JwtUtil.issue(payload);
+
       const cookies = [
         CookieUtil.set(
           JwtType.AccessToken,
@@ -519,6 +525,7 @@ export class UserController implements CoreController {
     },
   );
 
+  // TODO: 조건?
   private getUsers = catchAsync(
     async (
       request: QueryRequest,

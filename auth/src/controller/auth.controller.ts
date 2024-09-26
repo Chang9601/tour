@@ -17,6 +17,7 @@ import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 
+// OK
 export class AuthController implements CoreController {
   public readonly path = '/api/v1/auth';
   public readonly router = Router();
@@ -28,26 +29,11 @@ export class AuthController implements CoreController {
 
   public initializeRoutes = (): void => {
     this.router.route(`${this.path}/sign-in`).post(this.signIn);
+
     this.router
       .route(`${this.path}/sign-out`)
       .post(authenticationMiddleware, this.signOut);
-
-    // this.router.all('*', this.handleRoutes);
   };
-
-  // private handleRoutes = async (
-  //   request: Request,
-  //   response: Response,
-  //   next: NextFunction,
-  // ) => {
-  //   const error = {
-  //     codeAttr: Code.NOT_FOUND,
-  //     detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-  //     isOperational: true,
-  //   };
-
-  //   next(error);
-  // };
 
   private signIn = catchAsync(
     async (
