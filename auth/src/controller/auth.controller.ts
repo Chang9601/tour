@@ -7,8 +7,6 @@ import {
   CookieUtil,
   JwtPayload,
   JwtUtil,
-  User,
-  UserRepository,
   authenticationMiddleware,
   catchAsync,
   JwtType,
@@ -16,6 +14,8 @@ import {
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
+import { User } from '../model/user.model';
+import { UserRepository } from '../repository/user.repository';
 
 // OK
 export class AuthController implements CoreController {

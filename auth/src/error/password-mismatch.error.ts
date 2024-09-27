@@ -4,7 +4,6 @@ export class PasswordMismatchError extends CoreError {
   constructor(
     public readonly code: CodeAttribute,
     public readonly detail: string | string[],
-    public readonly isOperational: boolean,
   ) {
     super(code, detail);
   }

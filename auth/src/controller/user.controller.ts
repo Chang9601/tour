@@ -14,8 +14,6 @@ import {
   QueryBuilder,
   QueryRequest,
   RequestWithUser,
-  User,
-  UserRepository,
   UserRole,
   authenticationMiddleware,
   authorizationMiddleware,
@@ -32,6 +30,8 @@ import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 import { InvalidApiError } from '../error/invalid-api.error';
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 import { SamePasswordError } from '../error/same-password.error';
+import { User } from '../model/user.model';
+import { UserRepository } from '../repository/user.repository';
 import { UserValidator } from '../util/user-validator';
 
 multerInstance.initialize(process.env.IMAGE_DIRECTORY_PATH, 'user', 'image');
@@ -95,6 +95,16 @@ export class UserController implements CoreController {
         this.uploadPhoto,
         // this.resizePhoto,
         this.updateUser,
+      )
+      .patch(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.banUser,
+      )
+      .patch(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.unbanUser,
       );
 
     this.router
@@ -144,7 +154,9 @@ export class UserController implements CoreController {
         ...request.body,
       });
 
-      await EmailUtil.create(user.email, '').sendWelcome();
+      const url = `${request.protocol}://${request.get('host')}/api/v1/users/me`;
+
+      await EmailUtil.create(user.email, url).sendWelcome();
 
       const success = ApiResponse.handleSuccess(
         Code.CREATED.code,
@@ -484,6 +496,28 @@ export class UserController implements CoreController {
   private uploadPhoto = multerInstance.multer.single('photo');
 
   /* 관리자 API */
+  private banUser = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.update(
+        { _id: request.params.id },
+        { banned: false, updatedAt: Date.now() },
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '사용자를 차단했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
   private deleteUser = catchAsync(
     async (
       request: RequestWithUser,
@@ -548,6 +582,28 @@ export class UserController implements CoreController {
         Code.OK.message,
         users,
         '사용자 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private unbanUser = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.update(
+        { _id: request.params.id },
+        { banned: true, updatedAt: Date.now() },
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '사용자 차단을 해제했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
