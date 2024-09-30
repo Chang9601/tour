@@ -39,7 +39,7 @@ spec:
             - name: NODEMAILER_PASS
               value: '7eac6749a5738c'
             - name: STRIPE_SECRET_KEY
-              value: sk_test_51Q2RhYG2wGwVvxSG76zyWX5PNuNv0jHTkJrTfXjSHpS1b2XIjeZeFKcVQoJvJTUolfYRFZ852A25uGW9KajjvwOk00IkOfCCYP
+              value:
             - name: NATS_URL
               value: 'http://nats:4222'
             - name: NATS_CLUSTER_ID
