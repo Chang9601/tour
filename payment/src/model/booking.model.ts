@@ -3,12 +3,6 @@ import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
 import { BookingStatus } from '@whooatour/common';
 
-interface BookingAttribute {
-  price: number;
-  status: BookingStatus;
-  userId: string;
-}
-
 interface BookingDocument extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
   price: number;
@@ -17,9 +11,7 @@ interface BookingDocument extends mongoose.Document {
   sequence: number;
 }
 
-interface BookingModel extends mongoose.Model<BookingDocument> {
-  build(attrs: BookingAttribute): Promise<BookingDocument>;
-}
+interface BookingModel extends mongoose.Model<BookingDocument> {}
 
 const bookingSchema = new mongoose.Schema(
   {
@@ -62,10 +54,6 @@ const bookingSchema = new mongoose.Schema(
 
 bookingSchema.set('versionKey', 'sequence');
 bookingSchema.plugin(updateIfCurrentPlugin);
-
-bookingSchema.statics.build = async function (attrs: BookingAttribute) {
-  return await Booking.create(attrs);
-};
 
 const Booking = mongoose.model<BookingDocument, BookingModel>(
   'Booking',

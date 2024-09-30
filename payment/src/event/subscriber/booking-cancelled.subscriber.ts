@@ -13,6 +13,7 @@ import { queueGroup } from '../../event/queue-group';
 import { BookingNotFoundError } from '../../error/booking-not-found.error';
 import { Booking, BookingDocument } from '../../model/booking.model';
 
+// OK
 export class BookingCancelledSubscriber extends CoreSubscriber<BookingCancelledEvent> {
   readonly subject = Subject.BookingCancelled;
   queueGroup = queueGroup;

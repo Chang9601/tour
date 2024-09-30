@@ -3,11 +3,6 @@ import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
 import { TourDocument } from './tour.model';
 
-interface ReviewAttribute {
-  rating: number;
-  tour: TourDocument;
-}
-
 interface ReviewDocument extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
   rating: number;
@@ -15,9 +10,7 @@ interface ReviewDocument extends mongoose.Document {
   sequence: number;
 }
 
-interface ReviewModel extends mongoose.Model<ReviewDocument> {
-  build(attrs: ReviewAttribute): Promise<ReviewDocument>;
-}
+interface ReviewModel extends mongoose.Model<ReviewDocument> {}
 
 const reviewSchema = new mongoose.Schema(
   {
@@ -72,10 +65,6 @@ reviewSchema.set('versionKey', 'sequence');
  * 만약 이 확인 과정에서 충돌하는 수정이 발견되면 커밋 중인 트랜잭션은 롤백되고 다시 시작할 수 있다.
  */
 reviewSchema.plugin(updateIfCurrentPlugin);
-
-reviewSchema.statics.build = async function (attrs: ReviewAttribute) {
-  return await Review.create(attrs);
-};
 
 // reviewSchema.statics.calculateAverageRating = async function (
 //   tourId: mongoose.Types.ObjectId

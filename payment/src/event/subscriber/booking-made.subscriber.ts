@@ -11,6 +11,7 @@ import {
 import { queueGroup } from '../../event/queue-group';
 import { Booking } from '../../model/booking.model';
 
+// OK
 export class BookingMadeSubscriber extends CoreSubscriber<BookingMadeEvent> {
   readonly subject = Subject.BookingMade;
   queueGroup = queueGroup;
@@ -20,7 +21,7 @@ export class BookingMadeSubscriber extends CoreSubscriber<BookingMadeEvent> {
     message: Message,
   ): Promise<void> {
     try {
-      const { id, tour, status, userId, sequence } = data;
+      const { id, status, tour, userId, sequence } = data;
 
       await Booking.create({
         _id: id,

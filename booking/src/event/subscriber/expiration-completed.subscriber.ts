@@ -14,6 +14,7 @@ import { BookingCancelledPublisher } from '../../event/publisher/booking-cancell
 import { Booking } from '../../model/booking.model';
 import { queueGroup } from '../queue-group';
 
+// OK
 export class ExpirationCompletedSubscriber extends CoreSubscriber<ExpirationCompletedEvent> {
   readonly subject = Subject.ExpirationCompleted;
   queueGroup = queueGroup;
@@ -34,7 +35,7 @@ export class ExpirationCompletedSubscriber extends CoreSubscriber<ExpirationComp
         );
       }
 
-      /* 지불된 예약은 취소하지 않는다. */
+      /* 결제된 예약은 취소하지 않는다. */
       if (booking.status === BookingStatus.Completed) {
         return message.ack();
       }

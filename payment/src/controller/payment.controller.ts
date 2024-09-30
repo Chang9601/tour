@@ -13,6 +13,8 @@ import {
   natsInstance,
   authorizationMiddleware,
   UserRole,
+  QueryBuilder,
+  QueryRequest,
 } from '@whooatour/common';
 
 import { BookingCancelledError } from '../error/booking-cancelled.error';
@@ -20,11 +22,13 @@ import { BookingNotFoundError } from '../error/booking-not-found.error';
 import { PaymentMadePublisher } from '../event/publisher/payment-made.publisher';
 import { Booking } from '../model/booking.model';
 import { Payment } from '../model/payment.model';
-import { PaymentRepository } from '../repository/booking.repository';
+import { PaymentRepository } from '../repository/payment.repository';
 import { stripe } from '../stripe/stripe';
 
+// OK
 export class PaymentController implements CoreController {
   public readonly path = '/api/v1/payments';
+  public readonly adminPath = '/api/v1/admin/payments';
   public readonly router = Router();
   public readonly repository = new PaymentRepository(Payment);
 
@@ -34,7 +38,26 @@ export class PaymentController implements CoreController {
 
   public initializeRoutes = (): void => {
     this.router
+      .route(`${this.path}/:id`)
+      .get(authenticationMiddleware, this.getMyPayment);
+
+    this.router
       .route(`${this.path}`)
+      .get(authenticationMiddleware, this.getMyPayments)
+      .post(authenticationMiddleware, this.makeMyPayment);
+
+    /* 관리자 API */
+    this.router
+      .route(`${this.adminPath}/:id`)
+      .get(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.getPayment,
+      )
+      .post(authenticationMiddleware, this.makeMyPayment);
+
+    this.router
+      .route(`${this.adminPath}`)
       .get(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
@@ -59,13 +82,16 @@ export class PaymentController implements CoreController {
     next(error);
   };
 
-  private getPayments = catchAsync(
+  private getMyPayment = catchAsync(
     async (
-      request: Request,
+      request: RequestWithUser,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const payments = await this.repository.findAll();
+      const payments = await this.repository.find({
+        _id: request.params.id,
+        userId: request.user!.id,
+      });
 
       const success = ApiResponse.handleSuccess(
         Code.NO_CONTENT.code,
@@ -78,12 +104,48 @@ export class PaymentController implements CoreController {
     },
   );
 
+  private getMyPayments = catchAsync(
+    async (
+      request: QueryRequest,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const queryBuilder = new QueryBuilder(
+        this.repository.findAll({ userId: request.user!.id }),
+        request.query,
+      )
+        .filter()
+        .sort()
+        .project()
+        .paginate();
+
+      const payments = await queryBuilder.query;
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        payments,
+        '결제 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
   private makeMyPayment = catchAsync(
     async (
       request: RequestWithUser,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 결제할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       const { token, bookingId } = request.body;
 
       const booking = await Booking.findOne({ _id: bookingId });
@@ -124,6 +186,7 @@ export class PaymentController implements CoreController {
 
       request.body.bookingId = bookingId;
       request.body.chargeId = charge.id;
+      request.body.userId = request.user!.id;
 
       const payment = await this.repository.create(request.body);
 
@@ -138,8 +201,57 @@ export class PaymentController implements CoreController {
         id: payment.id,
         bookingId: payment.bookingId,
         chargeId: payment.chargeId,
+        userId: payment.userId,
         sequence: payment.sequence,
       });
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  /* 관리자 API */
+  private getPayment = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const payment = await this.repository.find({ _id: request.params.id });
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        payment,
+        '결제를 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private getPayments = catchAsync(
+    async (
+      request: QueryRequest,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const queryBuilder = new QueryBuilder(
+        this.repository.findAll(),
+        request.query,
+      )
+        .filter()
+        .sort()
+        .project()
+        .paginate();
+
+      const payments = await queryBuilder.query;
+
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        payments,
+        '결제 목록을 조회했습니다.',
+      );
 
       response.status(Code.OK.code).json(success);
     },

@@ -1,13 +1,10 @@
 import axios from 'axios';
 import { NextFunction, Request, Response, Router } from 'express';
 
-import {
-  CoreController,
-  User,
-  UserRepository,
-  catchAsync,
-  OAuth2Provider,
-} from '@whooatour/common';
+import { CoreController, catchAsync, OAuth2Provider } from '@whooatour/common';
+
+import { User } from '../model/user.model';
+import { UserRepository } from '../repository/user.repository';
 
 export class OAuth2Controller implements CoreController {
   public readonly path = '/api/v1/oauth2';

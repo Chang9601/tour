@@ -42,10 +42,10 @@ export class ReviewController implements CoreController {
       .post(
         authenticationMiddleware,
         ...validationMiddleware(ReviewValidator.create()),
-        this.createMyReview
+        this.createMyReview,
       );
 
-    this.router.route(this.path).get(this.getReviews); //.get(this.getMyReviews);
+    this.router.route(this.path).get(this.getReviews);
 
     this.router
       .route(`${this.path}/:id`)
@@ -54,7 +54,7 @@ export class ReviewController implements CoreController {
       .patch(
         authenticationMiddleware,
         ...validationMiddleware(ReviewValidator.update()),
-        this.updateMyReview
+        this.updateMyReview,
       );
 
     /* 관리자 경로 */
@@ -63,13 +63,13 @@ export class ReviewController implements CoreController {
       .delete(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
-        this.deleteReview
+        this.deleteReview,
       )
       .patch(
         authenticationMiddleware,
         authorizationMiddleware(UserRole.Admin),
         ...validationMiddleware(ReviewValidator.update()),
-        this.updateReview
+        this.updateReview,
       );
 
     this.router.all('*', this.handleRoutes);
@@ -78,7 +78,7 @@ export class ReviewController implements CoreController {
   public handleRoutes = async (
     request: Request,
     response: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     const error = {
       codeAttr: Code.NOT_FOUND,
@@ -93,23 +93,32 @@ export class ReviewController implements CoreController {
     async (
       request: Request,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
       request.query.limit = '5';
       request.query.sort = '-ratingAverage,price';
       request.query.fields = 'name,price,ratingAverage,summary,difficulty';
 
       next();
-    }
+    },
   );
 
   private createMyReview = catchAsync(
     async (
       request: RequestWithUser,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
-      if (!request.body.userId) request.body.userId = request.user?.id;
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 리뷰를 작성할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
+      if (!request.body.userId) request.body.userId = request.user!.id;
 
       const tour = await Tour.findOne({ _id: request.params.tourId });
 
@@ -117,8 +126,8 @@ export class ReviewController implements CoreController {
         return next(
           new TourNotFoundError(
             Code.NOT_FOUND,
-            '아이디에 해당하는 여행이 존재하지 않습니다.'
-          )
+            '아이디에 해당하는 여행이 존재하지 않습니다.',
+          ),
         );
       }
 
@@ -127,7 +136,7 @@ export class ReviewController implements CoreController {
       const review = await this.repository.create(request.body);
 
       /*
-       * 레코드에 대한 생성/수정/삭제 이벤트를 설명하기 위해 해당 레코드에 대한 이벤트를 주요 서비스가 발행할 때마다
+       * 도큐먼트에 대한 생성/수정/삭제 이벤트를 설명하기 위해 해당 도규먼트에 대한 이벤트를 주요 서비스가 발행할 때마다
        * 버전 번호를 증가시키거나 포함한다.
        */
       await new ReviewCreatedPublisher(natsInstance.client).publish({
@@ -144,19 +153,28 @@ export class ReviewController implements CoreController {
         Code.CREATED.code,
         Code.CREATED.message,
         review,
-        '리뷰를 생성했습니다.'
+        '리뷰를 생성했습니다.',
       );
 
       response.status(Code.CREATED.code).json(success);
-    }
+    },
   );
 
   private deleteMyReview = catchAsync(
     async (
       request: RequestWithUser,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 리뷰를 작성할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       const review = await (
         await this.repository.find({ _id: request.params.id })
       ).populate('tour');
@@ -166,8 +184,8 @@ export class ReviewController implements CoreController {
         return next(
           new UnauthorizedUserError(
             Code.FORBIDDEN,
-            '리뷰를 삭제할 수 있는 권한이 없습니다.'
-          )
+            '리뷰를 삭제할 수 있는 권한이 없습니다.',
+          ),
         );
       }
 
@@ -190,18 +208,18 @@ export class ReviewController implements CoreController {
         Code.NO_CONTENT.code,
         Code.NO_CONTENT.message,
         null,
-        '리뷰를 삭제했습니다.'
+        '리뷰를 삭제했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
-    }
+    },
   );
 
   private getReview = catchAsync(
     async (
       request: Request,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
       const review = await (
         await this.repository.find({ _id: request.params.id })
@@ -211,22 +229,22 @@ export class ReviewController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         review,
-        '여행을 찾았습니다.'
+        '여행을 찾았습니다.',
       );
 
       response.status(Code.OK.code).json(success);
-    }
+    },
   );
 
   private getReviews = catchAsync(
     async (
       request: QueryRequest,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
         this.repository.findAll().populate('tour'),
-        request.query
+        request.query,
       )
         .filter()
         .sort()
@@ -239,19 +257,28 @@ export class ReviewController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         reviews,
-        '리뷰 목록을 조회했습니다.'
+        '리뷰 목록을 조회했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
-    }
+    },
   );
 
   private updateMyReview = catchAsync(
     async (
       request: RequestWithUser,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 리뷰를 작성할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       const review = await (
         await this.repository.find({ _id: request.params.id })
       ).populate('tour');
@@ -260,8 +287,8 @@ export class ReviewController implements CoreController {
         return next(
           new UnauthorizedUserError(
             Code.FORBIDDEN,
-            '리뷰를 수정할 수 있는 권한이 없습니다.'
-          )
+            '리뷰를 수정할 수 있는 권한이 없습니다.',
+          ),
         );
       }
 
@@ -288,11 +315,11 @@ export class ReviewController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         review,
-        '리뷰를 수정했습니다.'
+        '리뷰를 수정했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
-    }
+    },
   );
 
   /* 관리자 API */
@@ -300,7 +327,7 @@ export class ReviewController implements CoreController {
     async (
       request: RequestWithUser,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
       const review = await this.repository.find({ _id: request.params.id });
 
@@ -318,24 +345,24 @@ export class ReviewController implements CoreController {
         Code.NO_CONTENT.code,
         Code.NO_CONTENT.message,
         null,
-        '리뷰를 삭제했습니다.'
+        '리뷰를 삭제했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
-    }
+    },
   );
 
   private updateReview = catchAsync(
     async (
       request: RequestWithUser,
       response: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
       const review = await this.repository.find({ _id: request.params.id });
 
       const updatedReview = await this.repository.update(
         { _id: request.params.id },
-        request.body
+        request.body,
       );
 
       await new ReviewUpdatedPublisher(natsInstance.client).publish({
@@ -351,10 +378,10 @@ export class ReviewController implements CoreController {
         Code.OK.code,
         Code.OK.message,
         updatedReview,
-        '리뷰를 수정했습니다.'
+        '리뷰를 수정했습니다.',
       );
 
       response.status(Code.OK.code).json(success);
-    }
+    },
   );
 }

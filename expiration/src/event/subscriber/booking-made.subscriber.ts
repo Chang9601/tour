@@ -14,15 +14,11 @@ export class BookingMadeSubscriber extends CoreSubscriber<BookingMadeEvent> {
     message: Message,
   ): Promise<void> {
     try {
-      const date = new Date();
+      const delay = new Date(data.expiration).getTime() - new Date().getTime();
 
-      const delay = new Date(data.expiration).getTime() - date.getTime();
+      console.log(`대기 시간(ms): ${delay}`);
 
-      console.log(date);
-      console.log(data.expiration);
-
-      console.log(`대기 시간: ${delay}`);
-
+      /* */
       await expirationQueue.add(
         {
           bookingId: data.id,

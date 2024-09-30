@@ -27,15 +27,11 @@ export class ExpirationApplication implements CoreApplication {
     this.uri = uri;
 
     this.connectToMessagingSystem();
+    this.initializeMiddlewares();
+    this.initializeErrorHandler();
   }
 
-  public listen(): Server {
-    const server = this.app.listen(this.port, () => {
-      console.log(`포트 ${this.port}에서 서버가 실행 중 입니다.`);
-    });
-
-    return server;
-  }
+  public listen(): void {}
 
   public async connectToMessagingSystem(): Promise<void> {
     await natsInstance.connect(
@@ -55,11 +51,7 @@ export class ExpirationApplication implements CoreApplication {
     new BookingMadeSubscriber(natsInstance.client).subscribe();
   }
 
-  public async connectToDatabase(): Promise<void> {
-    await mongoose.connect(this.uri);
-
-    console.log('MongoDB에 연결되었습니다.');
-  }
+  public async connectToDatabase(): Promise<void> {}
 
   public initializeMiddlewares(): void {
     this.app.use(bodyParser.json());
@@ -76,11 +68,7 @@ export class ExpirationApplication implements CoreApplication {
     }
   }
 
-  public initializeControllers(controllers: CoreController[]): void {
-    controllers.forEach((controller) => {
-      this.app.use(controller.router);
-    });
-  }
+  public initializeControllers(controllers: CoreController[]): void {}
 
   public initializeErrorHandler(): void {
     this.app.use(errorMiddleware);

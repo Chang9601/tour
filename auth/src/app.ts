@@ -44,9 +44,7 @@ export class AuthApplication implements CoreApplication {
     return server;
   }
 
-  public async connectToMessagingSystem(): Promise<void> {
-    throw new Error('Method not implemented.');
-  }
+  public async connectToMessagingSystem(): Promise<void> {}
 
   public async connectToDatabase(): Promise<void> {
     await mongoose.connect(this.uri);

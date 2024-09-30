@@ -57,7 +57,6 @@ export class UserValidator {
                 throw new NotAllowedFileExtension(
                   Code.BAD_REQUEST,
                   '허용되지 않는 파일 확장자입니다.',
-                  true,
                 );
               }
             },

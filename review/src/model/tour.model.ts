@@ -1,19 +1,13 @@
 import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
-interface TourAttribute {
-  name: string;
-}
-
 interface TourDocument extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
   name: string;
   sequence: number;
 }
 
-interface TourModel extends mongoose.Model<TourDocument> {
-  build(attrs: TourAttribute): Promise<TourDocument>;
-}
+interface TourModel extends mongoose.Model<TourDocument> {}
 
 const tourSchema = new mongoose.Schema(
   {
@@ -49,15 +43,11 @@ const tourSchema = new mongoose.Schema(
       },
     },
     toObject: { virtuals: true, versionKey: false },
-  }
+  },
 );
 
 tourSchema.set('versionKey', 'sequence');
 tourSchema.plugin(updateIfCurrentPlugin);
-
-tourSchema.statics.build = async function (attrs: TourAttribute) {
-  return await Tour.create(attrs);
-};
 
 const Tour = mongoose.model<TourDocument, TourModel>('Tour', tourSchema);
 

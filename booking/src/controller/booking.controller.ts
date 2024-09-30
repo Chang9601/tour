@@ -13,6 +13,8 @@ import {
   QueryBuilder,
   UnauthorizedUserError,
   natsInstance,
+  authorizationMiddleware,
+  UserRole,
 } from '@whooatour/common';
 
 import { DuplicatedBookingError } from '../error/duplicate-booking.error';
@@ -25,6 +27,7 @@ import { BookingRepository } from '../repository/booking.repository';
 
 export class BookingController implements CoreController {
   public readonly path = '/api/v1/bookings';
+  public readonly adminPath = '/api/v1/admin/bookings';
   public readonly router = Router();
   public readonly repository = new BookingRepository(Booking);
 
@@ -33,10 +36,7 @@ export class BookingController implements CoreController {
   }
 
   public initializeRoutes = (): void => {
-    // this.router
-    //   .route(`${this.path}/checkout/:tourId`)
-    //   .get(authenticationMiddleware, this.chcekout);
-
+    // TODO: 경로를 어떻게?
     this.router
       .route(`${this.path}/tours/:tourId`)
       .post(authenticationMiddleware, this.makeMyBooking);
@@ -49,6 +49,28 @@ export class BookingController implements CoreController {
     this.router
       .route(`${this.path}`)
       .get(authenticationMiddleware, this.getMyBookings);
+
+    /* 관리자 API */
+    this.router
+      .route(`${this.adminPath}/:id`)
+      .delete(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.cancelBooking,
+      )
+      .get(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.getBooking,
+      );
+
+    this.router
+      .route(`${this.adminPath}`)
+      .get(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.getBookings,
+      );
 
     this.router.all('*', this.handleRoutes);
   };
@@ -73,6 +95,15 @@ export class BookingController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 예약을 취소할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       const booking = await (
         await this.repository.find({ _id: request.params.id })
       ).populate('tour');
@@ -110,7 +141,6 @@ export class BookingController implements CoreController {
     },
   );
 
-  // TODO: 예약 아이디는 민감한 정보인데 경로 매개변수가 아니라 본문에 넣는 것이 맞지않나?
   private getMyBooking = catchAsync(
     async (
       request: RequestWithUser,
@@ -120,7 +150,7 @@ export class BookingController implements CoreController {
       const booking = await (
         await this.repository.find({
           _id: request.params.id,
-          userId: request.user?.id,
+          userId: request.user!.id,
         })
       ).populate('tour');
 
@@ -142,7 +172,7 @@ export class BookingController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll({ userId: request.user?.id }).populate('tour'),
+        this.repository.findAll({ userId: request.user!.id }).populate('tour'),
         request.query,
       )
         .filter()
@@ -169,7 +199,16 @@ export class BookingController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      if (!request.body.userId) request.body.userId = request.user?.id;
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 예약을 취소할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
+      if (!request.body.userId) request.body.userId = request.user!.id;
 
       const tour = await Tour.findOne({ _id: request.params.tourId });
 
@@ -229,76 +268,88 @@ export class BookingController implements CoreController {
     },
   );
 
-  // private getMyBooking = catchAsync(
-  //   async (
-  //     request: RequestWithUser,
-  //     response: Response,
-  //     next: NextFunction,
-  //   ): Promise<void> => {
-  //     if (!request.body.tourId) request.body.tourId = request.params.tourId;
-  //     if (!request.body.userId) request.body.userId = request.user?.id;
+  /* 관리자 API */
+  private cancelBooking = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const booking = await (
+        await this.repository.find({ _id: request.params.id })
+      ).populate('tour');
 
-  //     const booking = await this.repository.create(request.body);
+      booking.status = BookingStatus.Cancelled;
 
-  //     const success = ApiResponse.handleSuccess(
-  //       Code.CREATED.code,
-  //       Code.CREATED.message,
-  //       booking,
-  //       '예약을 생성했습니다.',
-  //     );
-  //   },
-  // );
+      await booking.save();
 
-  // private chcekout = catchAsync(
-  //   async (
-  //     request: RequestWithUser,
-  //     response: Response,
-  //     next: NextFunction
-  //   ): Promise<void> => {
-  //     // 1. 현재 예약된 여행.
-  //     const tour = await
+      await new BookingCancelledPublisher(natsInstance.client).publish({
+        id: booking.id,
+        tour: {
+          id: booking.tour.id,
+        },
+        sequence: booking.sequence,
+      });
 
-  //     // 2. 체크아웃.
-  //     const session stripe.checkout.sessions.create({
-  //       payment_method_types,
-  //       success_url: `${request.protocol}://${request.get('host')}/?tour=${request.params.tourId}&user=${request.user.id}&price=${tour.price}`,
-  //       cancel_url: `${request.protocol}://${request.get('host')}/tour/${tour.slug}`,
-  //       customer_email,
-  //       client_reference_id: request.params.tourId,
-  //       line_items: [
-  //         {
-  //           name: `${tour.name}`,
-  //           description: tour.summary,
-  //           images: [],
-  //           amount: tour.price,
-  //           currency: 'krw',
-  //           quantity: 1,
-  //         },
-  //       ],
-  //     });
+      const success = ApiResponse.handleSuccess(
+        Code.NO_CONTENT.code,
+        Code.NO_CONTENT.message,
+        booking,
+        '예약을 취소했습니다.',
+      );
 
-  //     // 3. 세션.
-  //     response.status(Code.OK.code).json(session);
-  //   }
-  // );
+      response.status(Code.OK.code).json(success);
+    },
+  );
 
-  // private createCheckout = catchAsync(
-  //   async (
-  //     request: RequestWithUser,
-  //     response: Response,
-  //     next: NextFunction
-  //   ): Promise<void> => {
-  //   // 임시방편. 아무나 결제하지 않고 예약을 할 수 있다.
-  //   const {tour, user, price} = request.query;
+  private getBooking = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const booking = await (
+        await this.repository.find({
+          _id: request.params.id,
+        })
+      ).populate('tour');
 
-  //     if (!tour && !user && price) {
-  //       return next();
-  //     }
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        booking,
+        '예약을 조회했습니다.',
+      );
 
-  //     this.repository.create({tour, user, price});
+      response.status(Code.OK.code).json(success);
+    },
+  );
 
-  //     response.redirect(request.originalUrl.split('?')[0]);
+  private getBookings = catchAsync(
+    async (
+      request: QueryRequest,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const queryBuilder = new QueryBuilder(
+        this.repository.findAll().populate('tour'),
+        request.query,
+      )
+        .filter()
+        .sort()
+        .project()
+        .paginate();
 
-  //   }
-  // )
+      const bookings = await queryBuilder.query;
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        bookings,
+        '예약 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
 }

@@ -24,6 +24,7 @@ import {
   JwtType,
   mapRoleToEnum,
   CoreError,
+  UnauthorizedUserError,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
@@ -75,7 +76,7 @@ export class UserController implements CoreController {
       )
       .post(...validationMiddleware(UserValidator.create()), this.createMe);
 
-    /* 관리자 경로 */
+    /* 관리자 API */
     this.router
       .route(`${this.adminPath}/:id`)
       .delete(
@@ -143,6 +144,7 @@ export class UserController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       /* MongoDB 오류로 이메일 중복 검사. */
+      // TODO: 소프트 삭제 시 이메일 중복 확인 필요
       const { email, name, password, photo, userRole } = request.body;
 
       const user = await this.repository.create({
@@ -175,8 +177,17 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 회원탈퇴를 할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       await this.repository.update(
-        { _id: request.user?.id },
+        { _id: request.user!.id },
         { active: false, deletedAt: Date.now() },
       );
 
@@ -194,10 +205,19 @@ export class UserController implements CoreController {
   // TODO: url
   private forgetMyPassword = catchAsync(
     async (
-      request: Request,
+      request: RequestWithUser,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 비밀번호 망각을 요청할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       /* 1. 이메일을 기준으로 사용자를 조회한다. */
       const user = await this.repository.find({ email: request.body.email });
 
@@ -270,7 +290,7 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const user = await this.repository.find({ _id: request.user?.id });
+      const user = await this.repository.find({ _id: request.user!.id });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -285,10 +305,19 @@ export class UserController implements CoreController {
 
   private resetMyPassword = catchAsync(
     async (
-      request: Request,
+      request: RequestWithUser,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 비밀번호를 재설정할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       /* 1. 비밀번호 재변경 토큰을 기준으로 사용자를 조회한다. */
       const passwordResetToken = crypto
         .createHash('sha256')
@@ -383,6 +412,15 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 회원수정을 할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       /* 1. 비밀번호 수정 시 오류를 전송한다. */
       if (request.body.password) {
         return next(
@@ -401,7 +439,7 @@ export class UserController implements CoreController {
 
       /* 3. 사용자를 수정한다. */
       const user = await this.repository.update(
-        { _id: request.user?.id },
+        { _id: request.user!.id },
         { ...field, updatedAt: Date.now() },
       );
 
@@ -422,8 +460,17 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      if (request.user!.banned) {
+        return next(
+          new UnauthorizedUserError(
+            Code.FORBIDDEN,
+            '차단되어서 비밀번호를 수정할 수 있는 권한이 없습니다.',
+          ),
+        );
+      }
+
       /* 1. 아이디를 기준으로 사용자를 조회한다(로그인한 상태.). */
-      const user = await this.repository.find({ _id: request.user?.id });
+      const user = await this.repository.find({ _id: request.user!.id });
       const oldPassword = request.body.oldPassword;
       const newPassword = request.body.newPassword;
 
@@ -504,7 +551,7 @@ export class UserController implements CoreController {
     ): Promise<void> => {
       const user = await this.repository.update(
         { _id: request.params.id },
-        { banned: false, updatedAt: Date.now() },
+        { banned: true, updatedAt: Date.now() },
       );
 
       const success = ApiResponse.handleSuccess(
@@ -596,7 +643,7 @@ export class UserController implements CoreController {
     ): Promise<void> => {
       const user = await this.repository.update(
         { _id: request.params.id },
-        { banned: true, updatedAt: Date.now() },
+        { banned: false, updatedAt: Date.now() },
       );
 
       const success = ApiResponse.handleSuccess(

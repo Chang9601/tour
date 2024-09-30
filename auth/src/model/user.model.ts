@@ -1,7 +1,7 @@
 import * as crypto from 'crypto';
 
 import * as bcryptjs from 'bcryptjs';
-import mongoose from 'mongoose';
+import mongoose, { Query } from 'mongoose';
 import validator from 'validator';
 
 import { Optional, UserRole } from '@whooatour/common';
@@ -18,6 +18,7 @@ interface UserAttribute {
 
 export interface UserDocument extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
+  active: boolean;
   banned: boolean;
   email: string;
   name: string;
@@ -38,13 +39,19 @@ export interface UserModel extends mongoose.Model<UserDocument> {
   build(attrs: UserAttribute): Promise<UserDocument>;
 }
 
+type UserFindQuery = Query<
+  UserDocument | UserDocument[],
+  UserDocument,
+  {},
+  UserDocument,
+  'find' | 'findOne'
+>;
+
 const userSchema = new mongoose.Schema(
   {
     active: {
       type: Boolean,
       default: true,
-      /* 검색 쿼리에서 필드가 나오지 않지만 save() 메서드나 create() 메서드의 경우 적용되지 않는다. */
-      select: false,
     },
     banned: {
       type: Boolean,
@@ -75,6 +82,7 @@ const userSchema = new mongoose.Schema(
     },
     passwordResetToken: String,
     passwordResetTokenExpiration: Date,
+    /* 쿼리에서 필드가 나오지 않지만 save() 메서드나 create() 메서드의 경우 적용되지 않는다. */
     passwordUpdatedAt: { type: Date, select: false },
     photo: {
       type: String,
@@ -142,11 +150,12 @@ userSchema.pre('save', function (next) {
   next();
 });
 
-userSchema.pre(/^find/, function (this: UserModel, next) {
+userSchema.pre(/^find/, function (this: UserFindQuery, next) {
   /*
    * this는 현재 쿼리를 가리킨다.
    * 삭제(즉, 비활성화)된 사용자는 목록에서 제외한다.
    */
+
   this.find({ active: true });
 
   next();
@@ -199,7 +208,7 @@ userSchema.methods.createPasswordResetToken = function (): string {
   return passwordResetToken;
 };
 
-/* 공통 라이브러리에 저장된 사용자 모델을 가져온 후 [NodeJS] Error : Cannot overwrite 발생. */
+/* 공통 라이브러리에 저장된 사용자 모델을 가져온 후 [NodeJS] Error : Cannot overwrite 발생한다. */
 export const User =
   (mongoose.models.User as UserModel) ||
   mongoose.model<UserDocument, UserModel>('User', userSchema);
