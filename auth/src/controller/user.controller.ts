@@ -147,18 +147,13 @@ export class UserController implements CoreController {
       // TODO: 소프트 삭제 시 이메일 중복 확인 필요
       const { email, name, password, photo, userRole } = request.body;
 
-      const user = await this.repository.create({
-        email,
-        name,
-        password,
-        photo,
-        userRole: mapRoleToEnum(userRole),
-        ...request.body,
-      });
+      console.log(email);
 
-      const url = `${request.protocol}://${request.get('host')}/api/v1/users/me`;
+      const user = await this.repository.create(request.body);
 
-      await EmailUtil.create(user.email, url).sendWelcome();
+      //const url = `${request.protocol}://${request.get('host')}/api/v1/users/me`;
+
+      //await EmailUtil.create(user.email, url).sendWelcome();
 
       const success = ApiResponse.handleSuccess(
         Code.CREATED.code,

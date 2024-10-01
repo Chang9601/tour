@@ -11,8 +11,6 @@ declare global {
       JWT_ACCESS_SECRET: string;
       JWT_REFRESH_SECRET: string;
 
-      EXPIRATION_WINDOW: number;
-
       STRIPE_SECRET_KEY: string;
 
       NATS_URL: string;

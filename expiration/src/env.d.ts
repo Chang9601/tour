@@ -11,7 +11,7 @@ declare global {
       JWT_ACCESS_SECRET: string;
       JWT_REFRESH_SECRET: string;
 
-      EXPIRATION_WINDOW: number;
+      REDIS_HOST: string;
 
       NATS_URL: string;
       NATS_CLUSTER_ID: string;

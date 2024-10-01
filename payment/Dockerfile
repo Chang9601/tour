@@ -1,3 +1,4 @@
+FROM gcr.io/distroless/nodejs18-debian12 AS distroless
 FROM node:18.13.0-slim AS base
 
 ARG NODE_ENV=production
@@ -10,45 +11,26 @@ EXPOSE $PORT
 RUN npm install npm@8.19.3 -g
 RUN npm install typescript@5.4.5 -g
 
-WORKDIR /opt/express_app
-RUN chown -R node:node /opt/express_app/
-COPY --chown=node:node package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
 USER node
 
-FROM base AS dev
-
-ENV NODE_ENV=development
-
-WORKDIR /opt/express_app
-RUN npm install
-
-WORKDIR /opt/express_app/app
-
-# 개발 환경은 바인드 마운트를 할 것이기 때문에 COPY를 생략한다.
-# COPY --chown=node:node . .
-
-CMD ["node", "dist/src/server.js"]
-
-
-FROM base AS source
-
-WORKDIR /opt/express_app/app
+WORKDIR /app
+RUN chown -R node:node /app
+COPY --chown=node:node package*.json ./
+RUN npm ci --include=dev && npm cache clean --force
 
 COPY --chown=node:node . .
-
-
-FROM source AS prod
-
-USER root
-
-WORKDIR /opt/express_app/app/dist
-RUN chown -R node:node /opt/express_app/app/dist/
-
-WORKDIR /opt/express_app/app
 RUN npm run build
+RUN npm prune --omit=dev
 
-USER node
 
-CMD ["node", "dist/src/server.js"]
+FROM distroless AS prod
+
+COPY --from=base /app /app
+
+USER 1000
+EXPOSE 3000
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+CMD ["dist/src/server.js"]

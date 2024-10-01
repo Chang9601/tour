@@ -116,7 +116,8 @@ const userSchema = new mongoose.Schema(
       transform(document, pojo) {
         delete pojo._id;
         /* select: false여도 생성 시 응답에 나오기 때문에 제거한다. */
-        delete pojo._active;
+        delete pojo.active;
+        delete pojo.banned;
         delete pojo.createdAt;
         delete pojo.password;
         delete pojo.passwordResetToken;

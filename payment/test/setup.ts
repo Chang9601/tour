@@ -90,17 +90,15 @@ beforeAll(async () => {
   process.env.JWT_ACCESS_SECRET = 'tour-jwt-access';
   process.env.JWT_REFRESH_SECRET = 'tour-jwt-refresh';
 
-  process.env.EXPIRATION_WINDOW = 900;
-
   await mongoose.connect(uri, {});
 });
 
 afterEach(async () => {
-  await mongoose.connection.db.collection('bookings').deleteMany();
+  await mongoose.connection.db!.collection('bookings').deleteMany();
 });
 
 afterAll(async () => {
-  const collections = await mongoose.connection.db.collections();
+  const collections = await mongoose.connection.db!.collections();
 
   for (const collection of collections) {
     await collection.deleteMany({});

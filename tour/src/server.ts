@@ -1,9 +1,5 @@
 import * as dotenv from 'dotenv';
 
-import { TourApplication } from './app';
-import { TourController } from './controller/tour.controller';
-import { validateEnv } from './util/env-validator';
-
 /*
  * 잡히지 않은 예외'(uncaught exceptions)는 동기 코드에서 발생하지만 어디에서도 처리되지 않은 오류이다.
  */
@@ -17,6 +13,10 @@ process.on('uncaughtException', (error: Error) => {
 dotenv.config({
   path: '.env',
 });
+
+import { TourApplication } from './app';
+import { TourController } from './controller/tour.controller';
+import { validateEnv } from './util/env-validator';
 
 validateEnv();
 

@@ -6,10 +6,8 @@ export function validateEnv() {
     PORT: port(),
     MONGO_URI: str(),
 
-    COOKIE_ACCESS_EXPIRATION: num(),
-    COOKIE_REFRESH_EXPIRATION: num(),
-
-    JWT_ACCESS_SECRET: str(),
-    JWT_REFRESH_SECRET: str(),
+    NATS_URL: str(),
+    NATS_CLUSTER_ID: str(),
+    NATS_CLIENT_ID: str(),
   });
 }
