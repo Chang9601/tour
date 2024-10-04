@@ -1,10 +1,11 @@
 import fs from 'fs';
 import { Server } from 'http';
+import path from 'path';
 
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import mongoSanitize from 'express-mongo-sanitize';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
@@ -14,11 +15,12 @@ import morgan from 'morgan';
 import xss from 'xss-clean';
 
 import {
+  Code,
   CoreApplication,
   CoreController,
   errorMiddleware,
+  PageNotFoundError,
 } from '@whooatour/common';
-import path from 'path';
 
 export class AuthApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -41,6 +43,7 @@ export class AuthApplication implements CoreApplication {
     const server = this.app.listen(this.port, () => {
       console.log(`포트 ${this.port}에서 서버가 실행 중 입니다.`);
     });
+
     return server;
   }
 
@@ -121,6 +124,18 @@ export class AuthApplication implements CoreApplication {
     controllers.forEach((controller) => {
       this.app.use(controller.router);
     });
+
+    this.app.all(
+      '*',
+      (request: Request, response: Response, next: NextFunction) => {
+        next(
+          new PageNotFoundError(
+            Code.NOT_FOUND,
+            `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
+          ),
+        );
+      },
+    );
   }
 
   public initializeErrorHandler(): void {

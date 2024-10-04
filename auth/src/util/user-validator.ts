@@ -9,7 +9,6 @@ import {
 
 import { PasswordMismatchError } from '../error/password-mismatch.error';
 
-// OK
 export class UserValidator {
   public static create(): RunnableValidationChains<ValidationChain> {
     return checkSchema(
@@ -53,7 +52,7 @@ export class UserValidator {
           optional: true,
           custom: {
             options: (value) => {
-              if (isAllowedFileExtension(value)) {
+              if (!isAllowedFileExtension(value)) {
                 throw new NotAllowedFileExtension(
                   Code.BAD_REQUEST,
                   '허용되지 않는 파일 확장자입니다.',

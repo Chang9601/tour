@@ -21,8 +21,8 @@ describe('인증 API 테스트', () => {
 
   beforeEach(async () => {
     user = {
-      name: '사용자1',
       email: 'user1@naver.com',
+      name: '사용자1',
       password: '12341234aA!',
       passwordConfirm: '12341234aA!',
       photo: 'none.jpg',

@@ -116,8 +116,6 @@ const userSchema = new mongoose.Schema(
       transform(document, pojo) {
         delete pojo._id;
         /* select: false여도 생성 시 응답에 나오기 때문에 제거한다. */
-        delete pojo.active;
-        delete pojo.banned;
         delete pojo.createdAt;
         delete pojo.password;
         delete pojo.passwordResetToken;
@@ -138,6 +136,13 @@ userSchema.pre('save', async function (next) {
 
   next();
 });
+
+userSchema.pre('updateOne', function (next)) {
+
+}
+
+userSchema.pre('deleteOne', function (next)) {
+}
 
 userSchema.pre('save', function (next) {
   /* 비밀번호가 변경되지 않았거나 새로운 도큐먼트인 경우 넘어간다. */
@@ -210,6 +215,6 @@ userSchema.methods.createPasswordResetToken = function (): string {
 };
 
 /* 공통 라이브러리에 저장된 사용자 모델을 가져온 후 [NodeJS] Error : Cannot overwrite 발생한다. */
-export const User =
-  (mongoose.models.User as UserModel) ||
-  mongoose.model<UserDocument, UserModel>('User', userSchema);
+mongoose.deleteModel('User');
+
+export const User = mongoose.model<UserDocument, UserModel>('User', userSchema);

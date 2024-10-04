@@ -109,6 +109,8 @@ export class ReviewController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      console.log(request.user!);
+
       if (request.user!.banned) {
         return next(
           new UnauthorizedUserError(

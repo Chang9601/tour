@@ -86,8 +86,20 @@ const reviewSchema = new mongoose.Schema(
       },
     },
     toObject: { virtuals: true, versionKey: false },
-  }
+  },
 );
+
+reviewSchema.pre('save', function (next) {
+  if (this.isNew) {
+    return next();
+  }
+
+  this.updatedAt = new Date(Date.now());
+});
+
+reviewSchema.pre('deleteOne', function (next) {
+  this;
+});
 
 /* 여행과 사용자의 조합을 유일하게 만드는 복합 인덱스. */
 reviewSchema.index({ tour: 1, userId: 1 }, { unique: true });
@@ -148,7 +160,7 @@ reviewSchema.statics.build = async function (attrs: ReviewAttribute) {
 
 const Review = mongoose.model<ReviewDocument, ReviewModel>(
   'Review',
-  reviewSchema
+  reviewSchema,
 );
 
 export { Review, ReviewModel, ReviewDocument };

@@ -8,6 +8,7 @@
     "start:dev": "ts-node src/server.ts",
     "start:prod": "NODE_ENV=production ts-node src/server.ts",
     "test": "jest --watchAll --no-cache",
+    "test:ci": "jest",
     "debug": "ndb server.ts"
   },
   "jest": {
@@ -15,6 +16,9 @@
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "./test/setup.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/dist/"
     ],
     "collectCoverage": true,
     "collectCoverageFrom": [

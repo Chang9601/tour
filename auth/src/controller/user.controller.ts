@@ -74,9 +74,25 @@ export class UserController implements CoreController {
         // this.resizePhoto,
         this.updateMe,
       )
-      .post(...validationMiddleware(UserValidator.create()), this.createMe);
+      .post(this.createMe);
 
     /* 관리자 API */
+    this.router
+      .route(`${this.adminPath}/:id/banned`)
+      .patch(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.banUser,
+      );
+
+    this.router
+      .route(`${this.adminPath}/:id/unbanned`)
+      .patch(
+        authenticationMiddleware,
+        authorizationMiddleware(UserRole.Admin),
+        this.unbanUser,
+      );
+
     this.router
       .route(`${this.adminPath}/:id`)
       .delete(
@@ -96,16 +112,6 @@ export class UserController implements CoreController {
         this.uploadPhoto,
         // this.resizePhoto,
         this.updateUser,
-      )
-      .patch(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.banUser,
-      )
-      .patch(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.unbanUser,
       );
 
     this.router
@@ -115,27 +121,7 @@ export class UserController implements CoreController {
         authorizationMiddleware(UserRole.Admin),
         this.getUsers,
       );
-
-    this.router.all('*', this.handleRoutes);
   };
-
-  private handleRoutes = catchAsync(
-    async (
-      request: Request,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      const error: CoreError = {
-        codeAttribute: Code.NOT_FOUND,
-        detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-        isOperational: true,
-        name: 'PageNotFoundError',
-        message: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-      };
-
-      return next(error);
-    },
-  );
 
   private createMe = catchAsync(
     async (
@@ -147,9 +133,14 @@ export class UserController implements CoreController {
       // TODO: 소프트 삭제 시 이메일 중복 확인 필요
       const { email, name, password, photo, userRole } = request.body;
 
-      console.log(email);
-
-      const user = await this.repository.create(request.body);
+      const user = await this.repository.create({
+        email,
+        name,
+        password,
+        photo,
+        userRole: mapRoleToEnum(userRole),
+        ...request.body,
+      });
 
       //const url = `${request.protocol}://${request.get('host')}/api/v1/users/me`;
 

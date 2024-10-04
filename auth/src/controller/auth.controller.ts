@@ -10,6 +10,7 @@ import {
   authenticationMiddleware,
   catchAsync,
   JwtType,
+  CoreError,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
@@ -17,7 +18,6 @@ import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 import { User } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
 
-// OK
 export class AuthController implements CoreController {
   public readonly path = '/api/v1/auth';
   public readonly router = Router();
