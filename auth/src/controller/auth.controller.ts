@@ -10,7 +10,6 @@ import {
   authenticationMiddleware,
   catchAsync,
   JwtType,
-  CoreError,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
@@ -52,6 +51,7 @@ export class AuthController implements CoreController {
         );
       }
 
+      /* find() 메서드의 미들웨어에서 active: false를 배제한다. */
       const user = await this.repository.find({ email });
 
       if (!(await user.matchPassword(password, user.password))) {

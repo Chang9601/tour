@@ -25,7 +25,7 @@
   "author": "이창섭",
   "license": "ISC",
   "dependencies": {
-    "@whooatour/common": "^1.0.100",
+    "@whooatour/common": "^1.0.101",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -34,6 +34,7 @@
     "express": "^4.19.2",
     "express-validator": "^7.1.0",
     "hpp": "^0.2.3",
+    "ioredis": "^5.4.1",
     "mongoose": "^8.3.3",
     "mongoose-update-if-current": "^1.4.0",
     "morgan": "^1.10.0"

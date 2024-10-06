@@ -5,6 +5,7 @@ import path from 'path';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import cron from 'node-cron';
 import express, { NextFunction, Request, Response } from 'express';
 import mongoSanitize from 'express-mongo-sanitize';
 import { rateLimit } from 'express-rate-limit';
@@ -37,6 +38,7 @@ export class AuthApplication implements CoreApplication {
     this.initializeMiddlewares();
     this.initializeControllers(controllers);
     this.initializeErrorHandler();
+    this.runCronJobs();
   }
 
   public listen(): Server {
@@ -45,6 +47,21 @@ export class AuthApplication implements CoreApplication {
     });
 
     return server;
+  }
+
+  public runCronJobs(): void {
+    cron.schedule(
+      '* * * * *',
+      async () => {
+        await mongoose.connection.db
+          .collection('users')
+          .deleteMany({ active: false });
+      },
+      {
+        scheduled: true,
+        timezone: 'Asia/Seoul',
+      },
+    );
   }
 
   public async connectToMessagingSystem(): Promise<void> {}

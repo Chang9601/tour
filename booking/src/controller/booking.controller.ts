@@ -1,4 +1,5 @@
-import { Router, NextFunction, Request, Response, query } from 'express';
+import { Router, NextFunction, Request, Response } from 'express';
+import Redis from 'ioredis';
 
 import {
   ApiResponse,
@@ -30,6 +31,10 @@ export class BookingController implements CoreController {
   public readonly adminPath = '/api/v1/admin/bookings';
   public readonly router = Router();
   public readonly repository = new BookingRepository(Booking);
+  public readonly redis = new Redis(
+    process.env.REDIS_PORT,
+    process.env.REDIS_HOST,
+  );
 
   constructor() {
     this.initializeRoutes();
@@ -39,12 +44,12 @@ export class BookingController implements CoreController {
     // TODO: 경로를 어떻게?
     this.router
       .route(`${this.path}/tours/:tourId`)
-      .post(authenticationMiddleware, this.makeMyBooking);
+      .post(authenticationMiddleware(this.redis), this.makeMyBooking);
 
     this.router
       .route(`${this.path}/:id`)
-      .delete(authenticationMiddleware, this.cancelMyBooking)
-      .get(authenticationMiddleware, this.getMyBooking);
+      .delete(authenticationMiddleware(this.redis), this.cancelMyBooking)
+      .get(authenticationMiddleware(this.redis), this.getMyBooking);
 
     this.router
       .route(`${this.path}`)
@@ -54,12 +59,12 @@ export class BookingController implements CoreController {
     this.router
       .route(`${this.adminPath}/:id`)
       .delete(
-        authenticationMiddleware,
+        authenticationMiddleware(this.redis),
         authorizationMiddleware(UserRole.Admin),
         this.cancelBooking,
       )
       .get(
-        authenticationMiddleware,
+        authenticationMiddleware(this.redis),
         authorizationMiddleware(UserRole.Admin),
         this.getBooking,
       );
@@ -67,7 +72,7 @@ export class BookingController implements CoreController {
     this.router
       .route(`${this.adminPath}`)
       .get(
-        authenticationMiddleware,
+        authenticationMiddleware(this.redis),
         authorizationMiddleware(UserRole.Admin),
         this.getBookings,
       );

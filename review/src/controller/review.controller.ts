@@ -17,6 +17,7 @@ import {
 } from '@whooatour/common';
 
 import { TourNotFoundError } from '../error/tour-not-found.error';
+import { ReviewMaxUpdateError } from '../error/review-max-update.error';
 import { ReviewCreatedPublisher } from '../event/publisher/review-created.publisher';
 import { ReviewDeletedPublisher } from '../event/publisher/review-deleted.publisher';
 import { ReviewUpdatedPublisher } from '../event/publisher/review-updated.publisher';
@@ -109,8 +110,6 @@ export class ReviewController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      console.log(request.user!);
-
       if (request.user!.banned) {
         return next(
           new UnauthorizedUserError(
@@ -191,12 +190,12 @@ export class ReviewController implements CoreController {
         );
       }
 
-      /* OCC를 실행하기 위해서 save() 메서드를 호출한다. */
-      await review.save();
-
       await this.repository.delete({
         _id: request.params.id,
       });
+
+      /* OCC를 실행하기 위해서 save() 메서드를 호출한다. */
+      await review.save();
 
       await new ReviewDeletedPublisher(natsInstance.client).publish({
         id: review.id,
@@ -294,6 +293,17 @@ export class ReviewController implements CoreController {
         );
       }
 
+      console.log(review);
+
+      if (!review.canUpdate()) {
+        return next(
+          new ReviewMaxUpdateError(
+            Code.BAD_REQUEST,
+            '더 이상 리뷰를 수정할 수 없습니다.',
+          ),
+        );
+      }
+
       const { content, title, rating } = request.body;
 
       review.set({
@@ -324,7 +334,7 @@ export class ReviewController implements CoreController {
     },
   );
 
-  /* 관리자 API */
+  /* 관리자 API 둘 다 save() 메서드로 변경 */
   private deleteReview = catchAsync(
     async (
       request: RequestWithUser,

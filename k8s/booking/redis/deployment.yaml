@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking-redis
+  template:
+    metadata:
+      labels:
+        app: booking-redis
+    spec:
+      containers:
+        - name: booking-redis
+          image: redis:7.2.4

@@ -137,12 +137,9 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-userSchema.pre('updateOne', function (next)) {
+userSchema.pre('updateOne', function (next) {});
 
-}
-
-userSchema.pre('deleteOne', function (next)) {
-}
+userSchema.pre('deleteOne', function (next) {});
 
 userSchema.pre('save', function (next) {
   /* 비밀번호가 변경되지 않았거나 새로운 도큐먼트인 경우 넘어간다. */
@@ -161,7 +158,6 @@ userSchema.pre(/^find/, function (this: UserFindQuery, next) {
    * this는 현재 쿼리를 가리킨다.
    * 삭제(즉, 비활성화)된 사용자는 목록에서 제외한다.
    */
-
   this.find({ active: true });
 
   next();

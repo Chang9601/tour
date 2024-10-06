@@ -45,7 +45,7 @@ spec:
             - name: NATS_URL
               value: 'http://nats:4222'
             - name: NATS_CLUSTER_ID
-              value: tour
+              value: 'tour'
             - name: NATS_CLIENT_ID
               valueFrom:
                 fieldRef:

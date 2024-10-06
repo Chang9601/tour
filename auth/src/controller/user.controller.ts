@@ -131,6 +131,8 @@ export class UserController implements CoreController {
     ): Promise<void> => {
       /* MongoDB 오류로 이메일 중복 검사. */
       // TODO: 소프트 삭제 시 이메일 중복 확인 필요
+      //       쿼리에서는 나오지 않지만 MongoDB에서 중복을 검사한다.
+      //       따라서 스케줄링으로 몇 달 후 자동 제거!
       const { email, name, password, photo, userRole } = request.body;
 
       const user = await this.repository.create({

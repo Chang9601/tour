@@ -19,6 +19,7 @@ interface ReviewDocument extends mongoose.Document {
   tour: TourDocument;
   userId: mongoose.Types.ObjectId;
   sequence: number /* sequence는 도큐먼트 인터페이스에 없기 때문에 직접 정의한다. */;
+  canUpdate(): boolean;
 }
 
 interface ReviewModel extends mongoose.Model<ReviewDocument> {
@@ -34,13 +35,10 @@ const reviewSchema = new mongoose.Schema(
       maxlength: [2000, '내용은 2000자 이하입니다.'],
       minlength: [100, '내용은 100자 이상입니다.'],
     },
-    like: {
+    updateCount: {
       type: Number,
       default: 0,
-    },
-    dislike: {
-      type: Number,
-      default: 0,
+      max: [3, '최대 3번 수정할 수 있습니다.'],
     },
     title: {
       type: String,
@@ -118,6 +116,12 @@ reviewSchema.plugin(updateIfCurrentPlugin);
 
 reviewSchema.statics.build = async function (attrs: ReviewAttribute) {
   return await Review.create(attrs);
+};
+
+reviewSchema.methods.canUpdate = function (): boolean {
+  const MAX_UPDATE = 3;
+
+  return this.updateCount < MAX_UPDATE;
 };
 
 // reviewSchema.statics.calculateAverageRating = async function (
