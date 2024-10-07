@@ -5,6 +5,9 @@ declare global {
       PORT: number;
       MONGO_URI: string;
 
+      REDIS_HOST: string;
+      REDIS_PORT: number;
+
       COOKIE_ACCESS_EXPIRATION: number;
       COOKIE_REFRESH_EXPIRATION: number;
 

@@ -23,14 +23,16 @@ import {
   sanitizeField,
   JwtType,
   mapRoleToEnum,
-  CoreError,
   UnauthorizedUserError,
+  natsInstance,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
 import { InvalidApiError } from '../error/invalid-api.error';
 import { InvalidCredentialsError } from '../error/invalid-credentials.error';
 import { SamePasswordError } from '../error/same-password.error';
+import { UserBannedPublisher } from '../event/publisher/user-banned.publisher';
+import { UserUnbannedPublisher } from '../event/publisher/user-unbanned.publisher';
 import { User } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
 import { UserValidator } from '../util/user-validator';
@@ -542,6 +544,11 @@ export class UserController implements CoreController {
         { banned: true, updatedAt: Date.now() },
       );
 
+      await new UserBannedPublisher(natsInstance.client).publish({
+        id: user.id,
+        sequence: user.sequence,
+      });
+
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
         Code.OK.message,
@@ -633,6 +640,11 @@ export class UserController implements CoreController {
         { _id: request.params.id },
         { banned: false, updatedAt: Date.now() },
       );
+
+      await new UserUnbannedPublisher(natsInstance.client).publish({
+        id: user.id,
+        sequence: user.sequence,
+      });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,

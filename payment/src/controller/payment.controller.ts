@@ -219,8 +219,8 @@ export class PaymentController implements CoreController {
       const payment = await this.repository.find({ _id: request.params.id });
 
       const success = ApiResponse.handleSuccess(
-        Code.NO_CONTENT.code,
-        Code.NO_CONTENT.message,
+        Code.OK.code,
+        Code.OK.message,
         payment,
         '결제를 조회했습니다.',
       );
@@ -247,8 +247,8 @@ export class PaymentController implements CoreController {
       const payments = await queryBuilder.query;
 
       const success = ApiResponse.handleSuccess(
-        Code.NO_CONTENT.code,
-        Code.NO_CONTENT.message,
+        Code.OK.code,
+        Code.OK.message,
         payments,
         '결제 목록을 조회했습니다.',
       );

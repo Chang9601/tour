@@ -21,6 +21,8 @@ import { BookingMadeSubscriber } from './event/subscriber/booking-made.subscribe
 import { ReviewCreatedSubscriber } from './event/subscriber/review-created.subscriber';
 import { ReviewDeletedSubscriber } from './event/subscriber/review-deleted.subscriber';
 import { ReviewUpdatedSubscriber } from './event/subscriber/review-updated.subscriber';
+import { UserBannedSubscriber } from './event/subscriber/user-banned.subscriber';
+import { UserUnbannedSubscriber } from './event/subscriber/user-unbanned.subscriber';
 
 export class TourApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -69,6 +71,9 @@ export class TourApplication implements CoreApplication {
     new ReviewCreatedSubscriber(natsInstance.client).subscribe();
     new ReviewDeletedSubscriber(natsInstance.client).subscribe();
     new ReviewUpdatedSubscriber(natsInstance.client).subscribe();
+
+    new UserBannedSubscriber(natsInstance.client).subscribe();
+    new UserUnbannedSubscriber(natsInstance.client).subscribe();
   }
 
   public async connectToDatabase(): Promise<void> {

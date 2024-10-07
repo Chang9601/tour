@@ -13,10 +13,11 @@ import {
   CoreApplication,
   errorMiddleware,
   natsInstance,
-  //natsInstance,
 } from '@whooatour/common';
 
 import { TourCreatedSubscriber } from './event/subscriber/tour-created.subscriber';
+import { UserBannedSubscriber } from './event/subscriber/user-banned.subscriber';
+import { UserUnbannedSubscriber } from './event/subscriber/user-unbanned.subscriber';
 
 export class ReviewApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -47,7 +48,7 @@ export class ReviewApplication implements CoreApplication {
     await natsInstance.connect(
       process.env.NATS_CLUSTER_ID,
       process.env.NATS_CLIENT_ID,
-      process.env.NATS_URL
+      process.env.NATS_URL,
     );
 
     /*
@@ -63,6 +64,9 @@ export class ReviewApplication implements CoreApplication {
     process.on('SIGTERM', () => natsInstance.client.close());
 
     new TourCreatedSubscriber(natsInstance.client).subscribe();
+
+    new UserBannedSubscriber(natsInstance.client).subscribe();
+    new UserUnbannedSubscriber(natsInstance.client).subscribe();
   }
 
   public async connectToDatabase(): Promise<void> {
@@ -79,7 +83,7 @@ export class ReviewApplication implements CoreApplication {
     this.app.use(
       hpp({
         whitelist: ['title', 'content', 'rating'],
-      })
+      }),
     );
 
     if (process.env.NODE_ENV === 'development') {

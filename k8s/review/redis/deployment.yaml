@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-redis
+  template:
+    metadata:
+      labels:
+        app: review-redis
+    spec:
+      containers:
+        - name: review-redis
+          image: redis:7.2.4

@@ -1,5 +1,5 @@
 import { Router, NextFunction, Request, Response } from 'express';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 
 import {
   ApiResponse,
@@ -24,6 +24,7 @@ import { BookingCancelledPublisher } from '../event/publisher/booking-cancelled.
 import { BookingMadePublisher } from '../event/publisher/booking-made.publisher';
 import { Booking } from '../model/booking.model';
 import { Tour } from '../model/tour.model';
+import { redis } from '../redis/redis';
 import { BookingRepository } from '../repository/booking.repository';
 
 export class BookingController implements CoreController {
@@ -31,10 +32,6 @@ export class BookingController implements CoreController {
   public readonly adminPath = '/api/v1/admin/bookings';
   public readonly router = Router();
   public readonly repository = new BookingRepository(Booking);
-  public readonly redis = new Redis(
-    process.env.REDIS_PORT,
-    process.env.REDIS_HOST,
-  );
 
   constructor() {
     this.initializeRoutes();
@@ -44,27 +41,27 @@ export class BookingController implements CoreController {
     // TODO: 경로를 어떻게?
     this.router
       .route(`${this.path}/tours/:tourId`)
-      .post(authenticationMiddleware(this.redis), this.makeMyBooking);
+      .post(authenticationMiddleware(redis), this.makeMyBooking);
 
     this.router
       .route(`${this.path}/:id`)
-      .delete(authenticationMiddleware(this.redis), this.cancelMyBooking)
-      .get(authenticationMiddleware(this.redis), this.getMyBooking);
+      .delete(authenticationMiddleware(redis), this.cancelMyBooking)
+      .get(authenticationMiddleware(redis), this.getMyBooking);
 
     this.router
       .route(`${this.path}`)
-      .get(authenticationMiddleware, this.getMyBookings);
+      .get(authenticationMiddleware(redis), this.getMyBookings);
 
     /* 관리자 API */
     this.router
       .route(`${this.adminPath}/:id`)
       .delete(
-        authenticationMiddleware(this.redis),
+        authenticationMiddleware(redis),
         authorizationMiddleware(UserRole.Admin),
         this.cancelBooking,
       )
       .get(
-        authenticationMiddleware(this.redis),
+        authenticationMiddleware(redis),
         authorizationMiddleware(UserRole.Admin),
         this.getBooking,
       );
@@ -72,7 +69,7 @@ export class BookingController implements CoreController {
     this.router
       .route(`${this.adminPath}`)
       .get(
-        authenticationMiddleware(this.redis),
+        authenticationMiddleware(redis),
         authorizationMiddleware(UserRole.Admin),
         this.getBookings,
       );
@@ -204,11 +201,14 @@ export class BookingController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      console.log(request.user);
+      console.log(typeof request.user!.banned);
+
       if (request.user!.banned) {
         return next(
           new UnauthorizedUserError(
             Code.FORBIDDEN,
-            '차단되어서 예약을 취소할 수 있는 권한이 없습니다.',
+            '차단되어서 예약을 할 수 있는 권한이 없습니다.',
           ),
         );
       }

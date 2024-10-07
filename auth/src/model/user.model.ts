@@ -27,6 +27,7 @@ export interface UserDocument extends mongoose.Document {
   passwordResetTokenExpiration: Optional<Date>;
   photo: string;
   userRole: UserRole;
+  sequence: number;
   matchPassword(
     plainPassword: string,
     hashedPassword: string,

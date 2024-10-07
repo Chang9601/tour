@@ -13,8 +13,11 @@ import {
   errorMiddleware,
   natsInstance,
 } from '@whooatour/common';
+
 import { BookingCancelledSubscriber } from './event/subscriber/booking-cancelled.subscriber';
 import { BookingMadeSubscriber } from './event/subscriber/booking-made.subscriber';
+import { UserBannedSubscriber } from './event/subscriber/user-banned.subscriber';
+import { UserUnbannedSubscriber } from './event/subscriber/user-unbanned.subscriber';
 
 export class PaymentApplication implements CoreApplication {
   public readonly app: express.Application;
@@ -61,6 +64,8 @@ export class PaymentApplication implements CoreApplication {
 
     new BookingCancelledSubscriber(natsInstance.client).subscribe();
     new BookingMadeSubscriber(natsInstance.client).subscribe();
+    new UserBannedSubscriber(natsInstance.client).subscribe();
+    new UserUnbannedSubscriber(natsInstance.client).subscribe();
   }
 
   public async connectToDatabase(): Promise<void> {

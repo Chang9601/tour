@@ -20,6 +20,7 @@ import {
   CoreApplication,
   CoreController,
   errorMiddleware,
+  natsInstance,
   PageNotFoundError,
 } from '@whooatour/common';
 
@@ -34,6 +35,7 @@ export class AuthApplication implements CoreApplication {
     this.uri = uri;
 
     this.makeDirectory();
+    this.connectToMessagingSystem();
     this.connectToDatabase();
     this.initializeMiddlewares();
     this.initializeControllers(controllers);
@@ -64,7 +66,24 @@ export class AuthApplication implements CoreApplication {
     );
   }
 
-  public async connectToMessagingSystem(): Promise<void> {}
+  public async connectToMessagingSystem(): Promise<void> {
+    await natsInstance.connect(
+      process.env.NATS_CLUSTER_ID,
+      process.env.NATS_CLIENT_ID,
+      process.env.NATS_URL,
+    );
+    /*
+     * 공통 모듈에서 예외를 적용하면 한 서비스로 인해 모든 서비스가 종료될 수 있다.
+     * 따라서, 여기서 예외를 처리한다.
+     */
+    natsInstance.client.on('close', () => {
+      console.log('NATS 연결 종료.');
+      process.exit();
+    });
+
+    process.on('SIGINT', () => natsInstance.client.close());
+    process.on('SIGTERM', () => natsInstance.client.close());
+  }
 
   public async connectToDatabase(): Promise<void> {
     await mongoose.connect(this.uri);

@@ -6,6 +6,9 @@ export function validateEnv() {
     PORT: port(),
     MONGO_URI: str(),
 
+    REDIS_HOST: str(),
+    REDIS_PORT: port(),
+
     NATS_URL: str(),
     NATS_CLUSTER_ID: str(),
     NATS_CLIENT_ID: str(),

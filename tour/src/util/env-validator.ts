@@ -6,6 +6,9 @@ export function validateEnv() {
     PORT: port(),
     MONGO_URI: str(),
 
+    REDIS_HOST: str(),
+    REDIS_PORT: port(),
+
     IMAGE_DIRECTORY_PATH: str(),
 
     NATS_URL: str(),

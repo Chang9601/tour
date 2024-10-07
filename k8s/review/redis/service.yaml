@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-redis
+spec:
+  selector:
+    app: review-redis
+  ports:
+    - name: review-redis
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP
