@@ -51,10 +51,10 @@ export class ReviewUpdatedSubscriber extends CoreSubscriber<ReviewUpdatedEvent> 
       }
 
       const oldRating = review.rating;
-      const oldRatingSum = tour.ratingCount * tour.ratingAverage;
+      const oldRatingSum = tour.ratingsCount * tour.ratingsAverage;
       const newRatingSum = oldRatingSum - oldRating + newRating;
 
-      tour.ratingAverage = newRatingSum / tour.ratingCount;
+      tour.ratingsAverage = newRatingSum / tour.ratingsCount;
       await tour.save({ validateModifiedOnly: true });
 
       review.rating = newRating;

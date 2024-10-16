@@ -25,7 +25,6 @@ import { Payment } from '../model/payment.model';
 import { PaymentRepository } from '../repository/payment.repository';
 import { stripe } from '../stripe/stripe';
 
-// OK
 export class PaymentController implements CoreController {
   public readonly path = '/api/v1/payments';
   public readonly adminPath = '/api/v1/admin/payments';
@@ -97,7 +96,7 @@ export class PaymentController implements CoreController {
         Code.NO_CONTENT.code,
         Code.NO_CONTENT.message,
         payments,
-        '결제 목록을 조회했습니다.',
+        '결제를 조회했습니다.',
       );
 
       response.status(Code.OK.code).json(success);

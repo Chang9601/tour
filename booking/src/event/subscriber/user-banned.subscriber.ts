@@ -1,6 +1,11 @@
 import { Message } from 'node-nats-streaming';
 
-import { CoreSubscriber, Subject, UserBannedEvent } from '@whooatour/common';
+import {
+  CoreSubscriber,
+  generateUsersKey,
+  Subject,
+  UserBannedEvent,
+} from '@whooatour/common';
 
 import { queueGroup } from '../../event/queue-group';
 import { redis } from '../../redis/redis';
@@ -15,7 +20,22 @@ export class UserBannedSubscriber extends CoreSubscriber<UserBannedEvent> {
     message: Message,
   ): Promise<void> {
     try {
-      await redis.hset(`users:${data.id}`, { banned: true });
+      // const { id, banned, userRole } = data;
+
+      // const cachedUser = await redis.hgetall(`users:${id}`);
+
+      // if (findCachedUser(cachedUser)) {
+      //   await redis.hset(`users:${id}`, { banned: true });
+      // } else {
+      //   await cacheUser(
+      //     {
+      //       id,
+      //       banned,
+      //       userRole,
+      //     },
+      //     process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
+      //   );
+      // }
 
       message.ack();
     } catch (error) {

@@ -20,11 +20,7 @@ let booking: BookingDocument;
 
 describe('결제 API 테스트', () => {
   beforeEach(async () => {
-    paymentApplication = new PaymentApplication(
-      [new PaymentController()],
-      process.env.PORT,
-      process.env.MONGO_URI,
-    );
+    paymentApplication = new PaymentApplication([new PaymentController()]);
 
     userId = new mongoose.Types.ObjectId();
 

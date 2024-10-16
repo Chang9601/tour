@@ -14,11 +14,10 @@ let credentials: any;
 
 describe('인증 모듈 API 테스트', () => {
   beforeAll(async () => {
-    authApplication = new AuthApplication(
-      [new UserController(), new AuthController()],
-      process.env.PORT,
-      process.env.MONGO_URI,
-    );
+    authApplication = new AuthApplication([
+      new UserController(),
+      new AuthController(),
+    ]);
   });
 
   beforeEach(async () => {

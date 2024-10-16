@@ -46,11 +46,12 @@ export class ReviewCreatedSubscriber extends CoreSubscriber<ReviewCreatedEvent> 
         tour,
       });
 
-      const oldRatingSum = tour.ratingAverage * tour.ratingCount;
+      // TODO: 미들웨어 사용
+      const oldRatingSum = tour.ratingsAverage * tour.ratingsCount;
       const newRatingSum = oldRatingSum + rating;
 
-      tour.ratingCount += 1;
-      tour.ratingAverage = newRatingSum / tour.ratingCount;
+      tour.ratingsCount += 1;
+      tour.ratingsAverage = newRatingSum / tour.ratingsCount;
 
       await tour.save({ validateModifiedOnly: true });
 

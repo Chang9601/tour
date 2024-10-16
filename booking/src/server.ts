@@ -17,11 +17,7 @@ import { validateEnv } from './util/env-validator';
 
 validateEnv();
 
-const bookingApplication = new BookingApplication(
-  [new BookingController()],
-  process.env.PORT,
-  process.env.MONGO_URI,
-);
+const bookingApplication = new BookingApplication([new BookingController()]);
 
 const server = bookingApplication.listen();
 

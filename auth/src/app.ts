@@ -29,10 +29,10 @@ export class AuthApplication implements CoreApplication {
   public readonly port: number;
   public readonly uri: string;
 
-  constructor(controllers: CoreController[], port: number, uri: string) {
+  constructor(controllers: CoreController[]) {
     this.app = express();
-    this.port = port;
-    this.uri = uri;
+    this.port = process.env.PORT;
+    this.uri = process.env.MONGO_URI;
 
     this.makeDirectory();
     this.connectToMessagingSystem();

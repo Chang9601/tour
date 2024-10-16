@@ -4,7 +4,7 @@ import * as bcryptjs from 'bcryptjs';
 import mongoose, { Query } from 'mongoose';
 import validator from 'validator';
 
-import { Optional, UserRole } from '@whooatour/common';
+import { OAuth2Provider, Optional, UserRole } from '@whooatour/common';
 
 // OK
 interface UserAttribute {
@@ -22,6 +22,8 @@ export interface UserDocument extends mongoose.Document {
   banned: boolean;
   email: string;
   name: string;
+  oAuth2Provider: string;
+  oAuth2ProviderId: string;
   password: string;
   passwordResetToken: Optional<string>;
   passwordResetTokenExpiration: Optional<Date>;
@@ -72,6 +74,14 @@ const userSchema = new mongoose.Schema(
       trim: true,
       minlength: [2, '이름은 2자 이상입니다.'],
     },
+    oAuth2Provider: {
+      type: String,
+      required: true,
+      enum: Object.values(OAuth2Provider),
+      default: OAuth2Provider.Local,
+    },
+    oAuth2ProviderId: String,
+    oAuth2ProviderRefreshToken: String,
     password: {
       type: String,
       required: [true, '비밀번호가 있어야 합니다'],
@@ -83,13 +93,13 @@ const userSchema = new mongoose.Schema(
     },
     passwordResetToken: String,
     passwordResetTokenExpiration: Date,
-    /* 쿼리에서 필드가 나오지 않지만 save() 메서드나 create() 메서드의 경우 적용되지 않는다. */
+    /* 쿼리(find() 계열 메서드)에서 필드가 나오지 않지만 save() 메서드나 create() 메서드의 경우 적용되지 않는다. */
     passwordUpdatedAt: { type: Date, select: false },
     photo: {
       type: String,
       default: 'none.jpg',
     },
-    resetToken: String,
+    refreshToken: String,
     userRole: {
       type: String,
       required: true,
@@ -116,7 +126,7 @@ const userSchema = new mongoose.Schema(
       versionKey: false,
       transform(document, pojo) {
         delete pojo._id;
-        /* select: false여도 생성 시 응답에 나오기 때문에 제거한다. */
+        /* select: false여도 save() 메서드나 create() 메서드 사용 시 응답에 나오기 때문에 제거한다. */
         delete pojo.createdAt;
         delete pojo.password;
         delete pojo.passwordResetToken;

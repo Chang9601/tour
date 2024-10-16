@@ -15,11 +15,7 @@ let tour2: any;
 
 describe('예약 API 테스트', () => {
   beforeAll(async () => {
-    bookingApplication = new BookingApplication(
-      [new BookingController()],
-      process.env.PORT,
-      process.env.MONGO_URI,
-    );
+    bookingApplication = new BookingApplication([new BookingController()]);
 
     await mongoose.connection.db!.createCollection('tours');
 

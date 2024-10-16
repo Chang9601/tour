@@ -20,9 +20,19 @@ import { Tour } from '../model/tour.model';
 import { TourRepository } from '../repository/tour.repository';
 import { TourValidator } from '../util/tour-validator';
 
+type MulterFile = {
+  [fieldname: string]: Express.Multer.File[];
+};
+
 multerInstance.initialize(process.env.IMAGE_DIRECTORY_PATH, 'tour', 'image');
 
 export class TourController implements CoreController {
+  /*
+   * API 버전
+   * API를 변경할 경우 v1을 사용하고 있는 모든 사용자에게 영향을 주지 않고 v2에서 간단하게 변경할 수 있다.
+   * 기본적으로 새로운 버전의 API를 분기하여 생성할 수 있다.
+   * API 버전을 사용하지 않을 경우 API 변경 시 변경 전 API를 사용하는 사용자에게 문제가 발생한다.
+   */
   public readonly path = '/api/v1/tours';
   public readonly adminPath = '/api/v1/admin/tours';
   public readonly router = Router();
@@ -33,14 +43,19 @@ export class TourController implements CoreController {
   }
 
   public initializeRoutes = (): void => {
-    /* 매개변수 미들웨어는 특정 매개변수에 대해서만 실행되는 미들웨어이다. 즉, URL에 특정 매개변수를 가지고 있을 때 실행된다. */
+    /*
+     * 매개변수 미들웨어는 특정 매개변수에 대해서만 실행되는 미들웨어이다.
+     * 즉, URL에 특정 매개변수를 가지고 있을 때 실행된다.
+     */
     // this.router.param('id');
 
     /*
      * 미들웨어를 사용해서 쿼리 문자열의 특정 필드를 채울 수 있다.
      * 컨트롤러 호출 전 미들웨어를 실행한다.
      */
-    this.router.route(`${this.path}/monthly-plan`).get(this.getMonthlyPlan);
+    this.router
+      .route(`${this.path}/monthly-plan/:year`)
+      .get(this.getMonthlyPlan);
 
     this.router.route(`${this.path}/statistics`).get(this.getStatistics);
 
@@ -54,8 +69,9 @@ export class TourController implements CoreController {
 
     this.router.route(`${this.path}/:id`).get(this.getTour);
 
+    /* 컨트롤러 전에 별칭 경로 미들웨어를 실행한다. */
     this.router
-      .route(`${this.path}/top5`)
+      .route(`${this.path}/top`)
       .get(this.aliasTopTours, this.getTours);
 
     this.router.route(`${this.path}`).get(this.getTours);
@@ -84,22 +100,6 @@ export class TourController implements CoreController {
         ...validationMiddleware(TourValidator.update()),
         this.updateTour,
       );
-
-    this.router.all('*', this.handleRoutes);
-  };
-
-  public handleRoutes = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ) => {
-    const error = {
-      codeAttr: Code.NOT_FOUND,
-      detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-      isOperational: true,
-    };
-
-    next(error);
   };
 
   private aliasTopTours = catchAsync(
@@ -109,8 +109,8 @@ export class TourController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       request.query.limit = '5';
-      request.query.sort = '-ratingAverage,price';
-      request.query.fields = 'name,price,ratingAverage,summary,difficulty';
+      request.query.sort = '-ratingsAverage,price';
+      request.query.fields = 'difficulty,name,price,ratingsAverage,summary';
 
       next();
     },
@@ -157,6 +157,7 @@ export class TourController implements CoreController {
         '거리 안에 존재하는 여행 목록을 조회했습니다.',
       );
 
+      /* json() 메서드는 자동으로 Content-Type을 application/json으로 설정한다. */
       response.status(Code.OK.code).json(success);
     },
   );
@@ -174,7 +175,7 @@ export class TourController implements CoreController {
         { $unwind: '$startDate' },
         {
           $match: {
-            startDate: {
+            startDates: {
               $gte: new Date(`${year}-01-01`),
               $lte: new Date(`${year}-12-31`),
             },
@@ -182,7 +183,7 @@ export class TourController implements CoreController {
         },
         {
           $group: {
-            _id: { $month: '$startDate' },
+            _id: { $month: '$startDates' },
             countTourStart: { $sum: 1 },
             tours: { $push: '$name' },
           },
@@ -199,7 +200,7 @@ export class TourController implements CoreController {
           $sort: { countTourStart: -1 },
         },
         {
-          $limit: 5,
+          $limit: 12,
         },
       ]);
 
@@ -228,17 +229,17 @@ export class TourController implements CoreController {
       const statistics = await this.repository.aggregate([
         {
           /* match는 도큐먼트를 선택 및 필터링한다. */
-          $match: { ratingAverage: { $gte: 2.0 } },
+          $match: { ratingsAverage: { $gte: 3.0 } },
         },
-        /* group은 누산기를 사용해 도큐먼트를 그룹화한다. */
         {
+          /* group은 누산기를 사용해 도큐먼트를 그룹화한다. */
           $group: {
             /* 필드를 기준으로 결과를 그룹화할 수 있다. */
             _id: { $toUpper: '$difficulty' },
             /* 집계 파이프라인을 통과하는 각 도큐먼트에 대해 countTour에 1이 추가된다.*/
-            countTour: { $sum: 1 },
-            countRating: { $sum: '$ratingCount' },
-            averageRating: { $avg: '$ratingAverage' },
+            countTours: { $sum: 1 },
+            countRatings: { $sum: '$ratingsCount' },
+            averageRating: { $avg: '$ratingsAverage' },
             averagePrice: { $avg: '$price' },
             minimumPrice: { $min: '$price' },
             maximumPrice: { $max: '$price' },
@@ -275,7 +276,6 @@ export class TourController implements CoreController {
        * findById() 메서드는 내부적으로 findOne() 메서드를 사용한다.
        * 즉, Tour.findOne({ _id: req.params.id })
        */
-
       const tour = await this.repository.find({ _id: request.params.id });
 
       const success = ApiResponse.handleSuccess(
@@ -374,6 +374,7 @@ export class TourController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
+      /* 스키마에 없는 입력값은 무시된다. */
       const tour = await this.repository.create(request.body);
 
       await new TourCreatedPublisher(natsInstance.client).publish({
@@ -423,13 +424,10 @@ export class TourController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       if (request.files) {
-        const files = request.files as {
-          [fieldname: string]: Express.Multer.File[];
-        };
+        const files = request.files as MulterFile;
 
-        const coverImage = files.coverImage;
         // TODO: 여러 이미지는 어떻게?
-        const images = files.images;
+        const { coverImage, images } = files;
 
         request.body.coverImage = coverImage[0].filename;
         request.body.images = images;

@@ -601,7 +601,6 @@ export class UserController implements CoreController {
     },
   );
 
-  // TODO: 조건?
   private getUsers = catchAsync(
     async (
       request: QueryRequest,

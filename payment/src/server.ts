@@ -17,11 +17,7 @@ import { validateEnv } from './util/env-validator';
 
 validateEnv();
 
-const paymentApplication = new PaymentApplication(
-  [new PaymentController()],
-  process.env.PORT,
-  process.env.MONGO_URI,
-);
+const paymentApplication = new PaymentApplication([new PaymentController()]);
 
 const server = paymentApplication.listen();
 

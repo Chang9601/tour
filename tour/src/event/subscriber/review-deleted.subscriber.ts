@@ -48,13 +48,13 @@ export class ReviewDeletedSubscriber extends CoreSubscriber<ReviewDeletedEvent> 
         );
       }
 
-      const oldRatingSum = tour.ratingCount * tour.ratingAverage;
+      const oldRatingSum = tour.ratingsCount * tour.ratingsAverage;
       const newRatingSum = oldRatingSum - review.rating;
 
-      tour.ratingCount -= 1;
-      tour.ratingAverage = !tour.ratingCount
+      tour.ratingsCount -= 1;
+      tour.ratingsAverage = !tour.ratingsCount
         ? 0
-        : newRatingSum / tour.ratingCount;
+        : newRatingSum / tour.ratingsCount;
 
       await tour.save({ validateModifiedOnly: true });
 

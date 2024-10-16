@@ -42,6 +42,18 @@ spec:
               value: 'c3518266542222'
             - name: NODEMAILER_PASS
               value: '7eac6749a5738c'
+            - name: GOOGLE_OAUTH2_CLIENT_ID
+              value: ''
+            - name: GOOGLE_OAUTH2_CLIENT_SECRET
+              value: ''
+            - name: GOOGLE_OAUTH2_REDIRECT_URI
+              value: ''
+            - name: NAVER_OAUTH2_CLIENT_ID
+              value: ''
+            - name: NAVER_OAUTH2_CLIENT_SECRET
+              value: ''
+            - name: NAVER_OAUTH2_REDIRECT_URI
+              value: ''
             - name: NATS_URL
               value: 'http://nats:4222'
             - name: NATS_CLUSTER_ID
