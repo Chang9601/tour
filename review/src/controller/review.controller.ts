@@ -17,12 +17,12 @@ import {
 } from '@whooatour/common';
 
 import { TourNotFoundError } from '../error/tour-not-found.error';
-import { ReviewMaxUpdateError } from '../error/review-max-update.error';
 import { ReviewCreatedPublisher } from '../event/publisher/review-created.publisher';
 import { ReviewDeletedPublisher } from '../event/publisher/review-deleted.publisher';
 import { ReviewUpdatedPublisher } from '../event/publisher/review-updated.publisher';
 import { Review } from '../model/review.model';
 import { Tour } from '../model/tour.model';
+import { redis } from '../redis/redis';
 import { ReviewRepository } from '../repository/review.repository';
 import { ReviewValidator } from '../util/review-validator';
 
@@ -38,37 +38,41 @@ export class ReviewController implements CoreController {
 
   public initializeRoutes = (): void => {
     // TODO: 경로를 수정하여 여행 컨트롤러로 전달되는거 방지.
+    this.router.get(`${this.path}/tours/:tourId`, this.getReviewsByTour);
+    this.router.get(`${this.path}/:id`, this.getReview);
+    this.router.get(this.path, this.getReviews);
+
+    this.router.use(authenticationMiddleware(redis));
+
     this.router
       .route(`${this.path}/tours/:tourId`)
       .post(
-        authenticationMiddleware,
         ...validationMiddleware(ReviewValidator.create()),
         this.createMyReview,
-      );
-
-    this.router.route(this.path).get(this.getReviews);
+      )
+      .get(this.getReviewsByTour);
 
     this.router
       .route(`${this.path}/:id`)
-      .delete(authenticationMiddleware, this.deleteMyReview)
-      .get(this.getReview)
+      .delete(this.deleteMyReview)
       .patch(
-        authenticationMiddleware,
         ...validationMiddleware(ReviewValidator.update()),
         this.updateMyReview,
       );
 
+    this.router.get(
+      `${this.path}/tours/:tourId/top`,
+      this.aliasTopReviews,
+      this.getReviewsByTour,
+    );
+
     /* 관리자 경로 */
+    this.router.use(authorizationMiddleware(UserRole.Admin));
+
     this.router
       .route(`${this.adminPath}/:id`)
-      .delete(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.deleteReview,
-      )
+      .delete(this.deleteReview)
       .patch(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
         ...validationMiddleware(ReviewValidator.update()),
         this.updateReview,
       );
@@ -90,6 +94,7 @@ export class ReviewController implements CoreController {
     next(error);
   };
 
+  // TODO: 좋아요/싫어요 추가
   private aliasTopReviews = catchAsync(
     async (
       request: Request,
@@ -97,8 +102,8 @@ export class ReviewController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       request.query.limit = '5';
-      request.query.sort = '-ratingAverage,price';
-      request.query.fields = 'name,price,ratingAverage,summary,difficulty';
+      request.query.sort = '-ratingsAverage';
+      request.query.fields = 'name,price,ratingsAverage,summary,difficulty';
 
       next();
     },
@@ -176,9 +181,13 @@ export class ReviewController implements CoreController {
         );
       }
 
-      const review = await (
-        await this.repository.find({ _id: request.params.id })
-      ).populate('tour');
+      // const review = await (
+      //   await this.repository.find({ _id: request.params.id })
+      // ).populate('tour');
+
+      const review = await this.repository.findOne({
+        _id: request.params.id,
+      });
 
       // TODO: !== 오류 발생.
       if (review.userId != request.user!.id) {
@@ -222,9 +231,13 @@ export class ReviewController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const review = await (
-        await this.repository.find({ _id: request.params.id })
-      ).populate('tour');
+      // const review = await (
+      //   await this.repository.find({ _id: request.params.id })
+      // ).populate('tour');
+
+      const review = await this.repository.findOne({
+        _id: request.params.id,
+      });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -244,7 +257,35 @@ export class ReviewController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll().populate('tour'),
+        this.repository.find(), //.populate('tour'),
+        request.query,
+      )
+        .filter()
+        .sort()
+        .project()
+        .paginate();
+
+      const reviews = await queryBuilder.query;
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        reviews,
+        '리뷰 목록을 조회했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private getReviewsByTour = catchAsync(
+    async (
+      request: QueryRequest,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const queryBuilder = new QueryBuilder(
+        this.repository.find({ tour: request.params.tourId }), //.populate('tour'),
         request.query,
       )
         .filter()
@@ -280,26 +321,19 @@ export class ReviewController implements CoreController {
         );
       }
 
-      const review = await (
-        await this.repository.find({ _id: request.params.id })
-      ).populate('tour');
+      // const review = await (
+      //   await this.repository.find({ _id: request.params.id })
+      // ).populate('tour');
+
+      const review = await this.repository.findOne({
+        _id: request.params.id,
+      });
 
       if (review.userId != request.user!.id) {
         return next(
           new UnauthorizedUserError(
             Code.FORBIDDEN,
             '리뷰를 수정할 수 있는 권한이 없습니다.',
-          ),
-        );
-      }
-
-      console.log(review);
-
-      if (!review.canUpdate()) {
-        return next(
-          new ReviewMaxUpdateError(
-            Code.BAD_REQUEST,
-            '더 이상 리뷰를 수정할 수 없습니다.',
           ),
         );
       }
@@ -341,7 +375,7 @@ export class ReviewController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const review = await this.repository.find({ _id: request.params.id });
+      const review = await this.repository.findOne({ _id: request.params.id });
 
       await this.repository.delete({ _id: request.params.id });
 
@@ -370,7 +404,7 @@ export class ReviewController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const review = await this.repository.find({ _id: request.params.id });
+      const review = await this.repository.findOne({ _id: request.params.id });
 
       const updatedReview = await this.repository.update(
         { _id: request.params.id },

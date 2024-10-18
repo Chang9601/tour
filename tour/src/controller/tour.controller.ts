@@ -13,10 +13,12 @@ import {
   UserRole,
   multerInstance,
   natsInstance,
+  MissingRequiredParametersError,
 } from '@whooatour/common';
 
 import { TourCreatedPublisher } from '../event/publisher/tour-created.publisher';
 import { Tour } from '../model/tour.model';
+import { redis } from '../redis/redis';
 import { TourRepository } from '../repository/tour.repository';
 import { TourValidator } from '../util/tour-validator';
 
@@ -53,21 +55,21 @@ export class TourController implements CoreController {
      * 미들웨어를 사용해서 쿼리 문자열의 특정 필드를 채울 수 있다.
      * 컨트롤러 호출 전 미들웨어를 실행한다.
      */
-    this.router
-      .route(`${this.path}/monthly-plan/:year`)
-      .get(this.getMonthlyPlan);
+    this.router.get(`${this.path}/monthly-plan/:year`, this.getMonthlyPlan);
 
-    this.router.route(`${this.path}/statistics`).get(this.getStatistics);
+    this.router.get(`${this.path}/statistics`, this.getStatistics);
 
-    this.router
-      .route(`${this.path}/tours-within/:distance/center/:latlng/:unit`)
-      .get(this.getToursWithin);
+    this.router.get(
+      `${this.path}/tours-within/:distance/center/:latlng/unit/:unit`,
+      this.getToursWithin,
+    );
 
-    this.router
-      .route(`${this.path}/distances/:latlng/unit/:unit`)
-      .get(this.getDistances);
+    this.router.get(
+      `${this.path}/distances/:latlng/unit/:unit`,
+      this.getDistances,
+    );
 
-    this.router.route(`${this.path}/:id`).get(this.getTour);
+    this.router.get(`${this.path}/:id`, this.getTour);
 
     /* 컨트롤러 전에 별칭 경로 미들웨어를 실행한다. */
     this.router
@@ -77,25 +79,17 @@ export class TourController implements CoreController {
     this.router.route(`${this.path}`).get(this.getTours);
 
     /* 관리자 경로 */
+    this.router.use(authenticationMiddleware(redis));
+    this.router.use(authorizationMiddleware(UserRole.Admin));
+
     this.router
       .route(this.adminPath)
-      .post(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        ...validationMiddleware(TourValidator.create()),
-        this.createTour,
-      );
+      .post(...validationMiddleware(TourValidator.create()), this.createTour);
 
     this.router
       .route(`${this.adminPath}/:id`)
-      .delete(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.deleteTour,
-      )
+      .delete(this.deleteTour)
       .patch(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
         this.uploadImage,
         ...validationMiddleware(TourValidator.update()),
         this.updateTour,
@@ -127,7 +121,12 @@ export class TourController implements CoreController {
       const [lat, lng] = latlng.split(',');
 
       if (!lat || !lng) {
-        next();
+        return next(
+          new MissingRequiredParametersError(
+            Code.BAD_REQUEST,
+            '위도와 경도가 필요합니다.',
+          ),
+        );
       }
 
       const multiplier = unit === 'mi' ? 0.000621371 : 0.001;
@@ -237,8 +236,8 @@ export class TourController implements CoreController {
             /* 필드를 기준으로 결과를 그룹화할 수 있다. */
             _id: { $toUpper: '$difficulty' },
             /* 집계 파이프라인을 통과하는 각 도큐먼트에 대해 countTour에 1이 추가된다.*/
-            countTours: { $sum: 1 },
-            countRatings: { $sum: '$ratingsCount' },
+            countTour: { $sum: 1 },
+            countRating: { $sum: '$ratingsCount' },
             averageRating: { $avg: '$ratingsAverage' },
             averagePrice: { $avg: '$price' },
             minimumPrice: { $min: '$price' },
@@ -276,7 +275,7 @@ export class TourController implements CoreController {
        * findById() 메서드는 내부적으로 findOne() 메서드를 사용한다.
        * 즉, Tour.findOne({ _id: req.params.id })
        */
-      const tour = await this.repository.find({ _id: request.params.id });
+      const tour = await this.repository.findOne({ _id: request.params.id });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -313,7 +312,7 @@ export class TourController implements CoreController {
        */
 
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll(),
+        this.repository.find(),
         request.query,
       )
         .filter()
@@ -334,7 +333,7 @@ export class TourController implements CoreController {
     },
   );
 
-  /* /tours-within/233/center/34.11145,-118.113491/unit/mi */
+  /* /tours-within/150/center/34.11145,-118.113491/unit/mi */
   private getToursWithin = catchAsync(
     async (
       request: Request,
@@ -349,10 +348,15 @@ export class TourController implements CoreController {
       const radius = unit === 'mi' ? distance / 3963.2 : distance / 6378.1;
 
       if (!lat || !lng) {
-        next();
+        return next(
+          new MissingRequiredParametersError(
+            Code.BAD_REQUEST,
+            '위도와 경도가 필요합니다.',
+          ),
+        );
       }
 
-      const tours = await this.repository.findAll({
+      const tours = await this.repository.find({
         sourceLocation: { $geoWithin: { $centerSphere: [[lng, lat], radius] } },
       });
 
@@ -398,6 +402,7 @@ export class TourController implements CoreController {
     },
   );
 
+  // TODO: 소프트 삭제로 수정
   private deleteTour = catchAsync(
     async (
       request: Request,
@@ -425,12 +430,14 @@ export class TourController implements CoreController {
     ): Promise<void> => {
       if (request.files) {
         const files = request.files as MulterFile;
-
+        let count = 1;
         // TODO: 여러 이미지는 어떻게?
         const { coverImage, images } = files;
 
         request.body.coverImage = coverImage[0].filename;
-        request.body.images = images;
+        request.body.images = images.map(
+          (image) => `${image.filename}-${count++}`,
+        );
       }
 
       const tour = await this.repository.update(

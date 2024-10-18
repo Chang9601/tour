@@ -38,41 +38,26 @@ export class BookingController implements CoreController {
   }
 
   public initializeRoutes = (): void => {
-    // TODO: 경로를 어떻게?
-    this.router
-      .route(`${this.path}/tours/:tourId`)
-      .post(authenticationMiddleware(redis), this.makeMyBooking);
+    this.router.use(authenticationMiddleware(redis));
+
+    this.router.post(`${this.path}/tours/:tourId`, this.makeMyBooking);
 
     this.router
       .route(`${this.path}/:id`)
-      .delete(authenticationMiddleware(redis), this.cancelMyBooking)
-      .get(authenticationMiddleware(redis), this.getMyBooking);
+      .delete(this.cancelMyBooking)
+      .get(this.getMyBooking);
 
-    this.router
-      .route(`${this.path}`)
-      .get(authenticationMiddleware(redis), this.getMyBookings);
+    this.router.get(`${this.path}`, this.getMyBookings);
 
     /* 관리자 API */
-    this.router
-      .route(`${this.adminPath}/:id`)
-      .delete(
-        authenticationMiddleware(redis),
-        authorizationMiddleware(UserRole.Admin),
-        this.cancelBooking,
-      )
-      .get(
-        authenticationMiddleware(redis),
-        authorizationMiddleware(UserRole.Admin),
-        this.getBooking,
-      );
+    this.router.use(authorizationMiddleware(UserRole.Admin));
 
     this.router
-      .route(`${this.adminPath}`)
-      .get(
-        authenticationMiddleware(redis),
-        authorizationMiddleware(UserRole.Admin),
-        this.getBookings,
-      );
+      .route(`${this.adminPath}/:id`)
+      .delete(this.cancelBooking)
+      .get(this.getBooking);
+
+    this.router.route(`${this.adminPath}`).get(this.getBookings);
 
     this.router.all('*', this.handleRoutes);
   };
@@ -106,9 +91,13 @@ export class BookingController implements CoreController {
         );
       }
 
-      const booking = await (
-        await this.repository.find({ _id: request.params.id })
-      ).populate('tour');
+      // const booking = await (
+      //   await this.repository.find({ _id: request.params.id })
+      // ).populate('tour');
+
+      const booking = await this.repository.findOne({
+        _id: request.params.id,
+      });
 
       // TODO: !== 사용 시 오류 발생.
       if (booking.userId != request.user!.id) {
@@ -149,12 +138,17 @@ export class BookingController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const booking = await (
-        await this.repository.find({
-          _id: request.params.id,
-          userId: request.user!.id,
-        })
-      ).populate('tour');
+      // const booking = await (
+      //   await this.repository.find({
+      //     _id: request.params.id,
+      //     userId: request.user!.id,
+      //   })
+      // ).populate('tour');
+
+      const booking = await this.repository.findOne({
+        _id: request.params.id,
+        userId: request.user!.id,
+      });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -174,7 +168,7 @@ export class BookingController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll({ userId: request.user!.id }).populate('tour'),
+        this.repository.find({ userId: request.user!.id }), //.populate('tour'),
         request.query,
       )
         .filter()
@@ -226,9 +220,7 @@ export class BookingController implements CoreController {
         );
       }
 
-      const isBooked = await tour.isBooked();
-
-      if (isBooked) {
+      if (await tour.isBooked()) {
         return next(
           new DuplicatedBookingError(
             Code.CONFLICT,
@@ -280,9 +272,13 @@ export class BookingController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const booking = await (
-        await this.repository.find({ _id: request.params.id })
-      ).populate('tour');
+      // const booking = await (
+      //   await this.repository.find({ _id: request.params.id })
+      // ).populate('tour');
+
+      const booking = await this.repository.findOne({
+        _id: request.params.id,
+      });
 
       booking.status = BookingStatus.Cancelled;
 
@@ -313,11 +309,15 @@ export class BookingController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const booking = await (
-        await this.repository.find({
-          _id: request.params.id,
-        })
-      ).populate('tour');
+      // const booking = await (
+      //   await this.repository.find({
+      //     _id: request.params.id,
+      //   })
+      // ).populate('tour');
+
+      const booking = await this.repository.findOne({
+        _id: request.params.id,
+      });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -337,7 +337,7 @@ export class BookingController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll().populate('tour'),
+        this.repository.find(), //.populate('tour'),
         request.query,
       )
         .filter()

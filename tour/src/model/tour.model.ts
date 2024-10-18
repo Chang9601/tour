@@ -122,7 +122,6 @@ const tourSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, '이름이 있어야 합니다.'],
-      unique: true,
       trim: true,
       maxlength: [20, '이름은 20자 이하입니다.'],
       minlength: [2, '이름은 2자 이상입니다.'],
@@ -132,7 +131,7 @@ const tourSchema = new mongoose.Schema(
       required: [true, '가격이 있어야 합니다.'],
       min: [100000, '가격은 100000원 이상입니다.'],
     },
-    ratingAverage: {
+    ratingsAverage: {
       type: Number,
       default: 0,
       min: [0, '평점은 0 이상입니다.'],
@@ -140,7 +139,7 @@ const tourSchema = new mongoose.Schema(
       set: (value: number) =>
         Math.round(value * 10) / 10 /* 3.66666 => 36.666 => 37 => 3.7 */,
     },
-    ratingCount: { type: Number, default: 0 },
+    ratingsCount: { type: Number, default: 0 },
     startDates: [Date],
     secret: {
       type: Boolean,
@@ -207,9 +206,10 @@ const tourSchema = new mongoose.Schema(
   },
 );
 
-//tourSchema.index({ price: 1 });
 //tourSchema.index({ price: 1, ratingAverage: -1 });
-//tourSchema.index({ sourceLocation: '2dsphere' });
+tourSchema.index({ price: 1 });
+tourSchema.index({ name: 1 });
+tourSchema.index({ sourceLocation: '2dsphere' });
 
 /*
  * 가상 속성은 스키마에서 정의할 수 있는 필드이지만 데이터베이스에 저장되지 않는다.
@@ -237,6 +237,7 @@ tourSchema.virtual('durationWeek').get(function () {
  * this 예약어는 집계를 가리킨다.
  */
 
+// TODO: 여행 가이드
 // tourSchema.pre('save', function (next) {
 //   const promises = this.guides.map((guide) => await User.findById(guide));
 //   this.guides = await Promise.all(promises);
@@ -250,6 +251,7 @@ tourSchema.pre(/^find/, function (this: TourFindQuery, next) {
   next();
 });
 
+// TODO: geoNear을 사용하려면 주석으로 처리
 tourSchema.pre('aggregate', function (next) {
   this.pipeline().unshift({ $match: { secret: { $ne: true } } });
 

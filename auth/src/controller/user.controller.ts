@@ -21,10 +21,9 @@ import {
   validationMiddleware,
   multerInstance,
   sanitizeField,
-  JwtType,
-  mapRoleToEnum,
   UnauthorizedUserError,
   natsInstance,
+  mapStringToUserRole,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
@@ -34,6 +33,7 @@ import { SamePasswordError } from '../error/same-password.error';
 import { UserBannedPublisher } from '../event/publisher/user-banned.publisher';
 import { UserUnbannedPublisher } from '../event/publisher/user-unbanned.publisher';
 import { User } from '../model/user.model';
+import { redis } from '../redis/redis';
 import { UserRepository } from '../repository/user.repository';
 import { UserValidator } from '../util/user-validator';
 
@@ -50,65 +50,59 @@ export class UserController implements CoreController {
   }
 
   public initializeRoutes = (): void => {
-    this.router.route(`${this.path}/current-user/:id`).get(this.getCurrentUser);
+    this.router.get(`${this.path}/current-user/:id`, this.getCurrentUser);
 
-    this.router
-      .route(`${this.path}/forget-password`)
-      .post(authenticationMiddleware, this.forgetMyPassword);
+    this.router.post(`${this.path}/forget-password`, this.forgetMyPassword);
 
-    this.router
-      .route(`${this.path}/reset-password/:token`)
-      .patch(authenticationMiddleware, this.resetMyPassword);
+    this.router.patch(
+      `${this.path}/reset-password/:token`,
+      this.resetMyPassword,
+    );
 
-    this.router
-      .route(`${this.path}/update-password`)
-      .patch(authenticationMiddleware, this.updateMyPassword);
+    this.router.post(
+      this.path,
+      ...validationMiddleware(UserValidator.create()),
+      this.createMe,
+    );
 
-    this.router.route(this.path).get(authenticationMiddleware, this.getMe);
+    this.router.patch(
+      `${this.path}/update-password`,
+      authenticationMiddleware(redis),
+      this.updateMyPassword,
+    );
+
+    this.router.get(this.path, authenticationMiddleware(redis), this.getMe);
 
     this.router
       .route(this.path)
-      .delete(authenticationMiddleware, this.deleteMe)
+      .delete(this.deleteMe)
       .patch(
-        authenticationMiddleware,
         ...validationMiddleware(UserValidator.update()),
         this.uploadPhoto,
         // this.resizePhoto,
         this.updateMe,
-      )
-      .post(this.createMe);
+      );
 
     /* 관리자 API */
-    this.router
-      .route(`${this.adminPath}/:id/banned`)
-      .patch(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.banUser,
-      );
-
-    this.router
-      .route(`${this.adminPath}/:id/unbanned`)
-      .patch(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.unbanUser,
-      );
+    this.router.patch(
+      `${this.adminPath}/:id/banned`,
+      authenticationMiddleware(redis),
+      authorizationMiddleware(UserRole.Admin),
+      this.banUser,
+    );
+    this.router.patch(
+      `${this.adminPath}/:id/unbanned`,
+      authenticationMiddleware(redis),
+      authorizationMiddleware(UserRole.Admin),
+      this.unbanUser,
+    );
 
     this.router
       .route(`${this.adminPath}/:id`)
-      .delete(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.deleteUser,
-      )
-      .get(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.getUser,
-      )
+      .delete(this.deleteUser)
+      .get(this.getUser)
       .patch(
-        authenticationMiddleware,
+        authenticationMiddleware(redis),
         authorizationMiddleware(UserRole.Admin),
         ...validationMiddleware(UserValidator.update()),
         this.uploadPhoto,
@@ -116,13 +110,12 @@ export class UserController implements CoreController {
         this.updateUser,
       );
 
-    this.router
-      .route(this.adminPath)
-      .get(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.getUsers,
-      );
+    this.router.get(
+      this.adminPath,
+      authenticationMiddleware(redis),
+      authorizationMiddleware(UserRole.Admin),
+      this.getUsers,
+    );
   };
 
   private createMe = catchAsync(
@@ -131,10 +124,6 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      /* MongoDB 오류로 이메일 중복 검사. */
-      // TODO: 소프트 삭제 시 이메일 중복 확인 필요
-      //       쿼리에서는 나오지 않지만 MongoDB에서 중복을 검사한다.
-      //       따라서 스케줄링으로 몇 달 후 자동 제거!
       const { email, name, password, photo, userRole } = request.body;
 
       const user = await this.repository.create({
@@ -142,7 +131,7 @@ export class UserController implements CoreController {
         name,
         password,
         photo,
-        userRole: mapRoleToEnum(userRole),
+        userRole: mapStringToUserRole(userRole),
         ...request.body,
       });
 
@@ -161,6 +150,7 @@ export class UserController implements CoreController {
     },
   );
 
+  // TODO: 사용자 차단처럼 이벤트
   private deleteMe = catchAsync(
     async (
       request: RequestWithUser,
@@ -178,7 +168,7 @@ export class UserController implements CoreController {
 
       await this.repository.update(
         { _id: request.user!.id },
-        { active: false, deletedAt: Date.now() },
+        { active: false, deletedAt: new Date(Date.now()) },
       );
 
       const success = ApiResponse.handleSuccess(
@@ -192,7 +182,6 @@ export class UserController implements CoreController {
     },
   );
 
-  // TODO: url
   private forgetMyPassword = catchAsync(
     async (
       request: RequestWithUser,
@@ -209,7 +198,7 @@ export class UserController implements CoreController {
       }
 
       /* 1. 이메일을 기준으로 사용자를 조회한다. */
-      const user = await this.repository.find({ email: request.body.email });
+      const user = await this.repository.findOne({ email: request.body.email });
 
       /* 2. 비밀번호 재설정 토큰을 생성한다. */
       const passwordResetToken = user.createPasswordResetToken();
@@ -261,7 +250,7 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const user = await this.repository.find({ _id: request.params.id });
+      const user = await this.repository.findOne({ _id: request.params.id });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -280,7 +269,7 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const user = await this.repository.find({ _id: request.user!.id });
+      const user = await this.repository.findOne({ _id: request.user!.id });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -314,7 +303,7 @@ export class UserController implements CoreController {
         .update(request.params.token)
         .digest('hex');
 
-      const user = await this.repository.find({
+      const user = await this.repository.findOne({
         passwordResetToken,
         passwordResetTokenExpiration: { $gt: Date.now() },
       });
@@ -324,7 +313,6 @@ export class UserController implements CoreController {
         password: request.body.password,
         passwordResetToken: undefined,
         passwordResetTokenExpiration: undefined,
-        passwordUpdatedAt: Date.now(),
       });
 
       /*
@@ -335,28 +323,12 @@ export class UserController implements CoreController {
 
       const payload: JwtPayload = { id: user._id };
 
-      const jwt: JwtBundle = JwtUtil.issue(payload);
+      const jwt: JwtBundle = JwtUtil.issue(payload, user.email);
 
-      const cookies = [
-        CookieUtil.set(
-          JwtType.AccessToken,
-          jwt.accessToken,
-          true,
-          process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
-          'Strict',
-          '/',
-          process.env.NODE_ENV === 'production' ? true : false,
-        ),
-        CookieUtil.set(
-          JwtType.RefreshToken,
-          jwt.refreshToken,
-          true,
-          process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
-          'Strict',
-          '/',
-          process.env.NODE_ENV === 'production' ? true : false,
-        ),
-      ];
+      const cookies = CookieUtil.setJwtCookies(
+        jwt.accessToken,
+        jwt.refreshToken,
+      );
 
       /* 3. 사용자를 로그인하고 쿠키를 전송한다. */
       const success = ApiResponse.handleSuccess(
@@ -430,7 +402,7 @@ export class UserController implements CoreController {
       /* 3. 사용자를 수정한다. */
       const user = await this.repository.update(
         { _id: request.user!.id },
-        { ...field, updatedAt: Date.now() },
+        { ...field, updatedAt: new Date(Date.now()) },
       );
 
       const success = ApiResponse.handleSuccess(
@@ -460,7 +432,7 @@ export class UserController implements CoreController {
       }
 
       /* 1. 아이디를 기준으로 사용자를 조회한다(로그인한 상태.). */
-      const user = await this.repository.find({ _id: request.user!.id });
+      const user = await this.repository.findOne({ _id: request.user!.id });
       const oldPassword = request.body.oldPassword;
       const newPassword = request.body.newPassword;
 
@@ -493,28 +465,12 @@ export class UserController implements CoreController {
       /* 5. 사용자를 로그인하고 쿠키를 전송한다. */
       const payload: JwtPayload = { id: user._id };
 
-      const jwt: JwtBundle = JwtUtil.issue(payload);
+      const jwt: JwtBundle = JwtUtil.issue(payload, user.email);
 
-      const cookies = [
-        CookieUtil.set(
-          JwtType.AccessToken,
-          jwt.accessToken,
-          true,
-          process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
-          'Strict',
-          '/',
-          process.env.NODE_ENV === 'production' ? true : false,
-        ),
-        CookieUtil.set(
-          JwtType.RefreshToken,
-          jwt.refreshToken,
-          true,
-          process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
-          'Strict',
-          '/',
-          process.env.NODE_ENV === 'production' ? true : false,
-        ),
-      ];
+      const cookies = CookieUtil.setJwtCookies(
+        jwt.accessToken,
+        jwt.refreshToken,
+      );
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -530,8 +486,6 @@ export class UserController implements CoreController {
     },
   );
 
-  private uploadPhoto = multerInstance.multer.single('photo');
-
   /* 관리자 API */
   private banUser = catchAsync(
     async (
@@ -539,13 +493,18 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const user = await this.repository.update(
-        { _id: request.params.id },
-        { banned: true, updatedAt: Date.now() },
-      );
+      const user = await this.repository.findOne({ _id: request.params.id });
+
+      user.set({
+        banned: true,
+      });
+
+      await user.save();
 
       await new UserBannedPublisher(natsInstance.client).publish({
         id: user.id,
+        banned: user.banned,
+        userRole: user.userRole,
         sequence: user.sequence,
       });
 
@@ -568,7 +527,7 @@ export class UserController implements CoreController {
     ): Promise<void> => {
       await this.repository.update(
         { _id: request.params.id },
-        { active: false, deletedAt: Date.now() },
+        { active: false, deletedAt: new Date(Date.now()) },
       );
 
       const success = ApiResponse.handleSuccess(
@@ -588,7 +547,7 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const user = await this.repository.find({ _id: request.params.id });
+      const user = await this.repository.findOne({ _id: request.params.id });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -608,7 +567,7 @@ export class UserController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll(),
+        this.repository.find(),
         request.query,
       )
         .filter()
@@ -635,13 +594,18 @@ export class UserController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const user = await this.repository.update(
-        { _id: request.params.id },
-        { banned: false, updatedAt: Date.now() },
-      );
+      const user = await this.repository.findOne({ _id: request.params.id });
+
+      user.set({
+        banned: false,
+      });
+
+      await user.save();
 
       await new UserUnbannedPublisher(natsInstance.client).publish({
         id: user.id,
+        banned: user.banned,
+        userRole: user.userRole,
         sequence: user.sequence,
       });
 
@@ -663,14 +627,14 @@ export class UserController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const { name, email, password, userRole } = request.body;
-      const photo = request.file !== null ? request.file?.filename : null;
-      const user = await this.repository.find({ _id: request.params.id });
+      const photo = request.file !== null ? request.file!.filename : null;
+      const user = await this.repository.findOne({ _id: request.params.id });
 
       user.set({
         email: !email ? user.email : email,
         name: !name ? user.name : name,
         photo: !photo ? user.photo : photo,
-        userRole: !userRole ? user.userRole : mapRoleToEnum(userRole),
+        userRole: !userRole ? user.userRole : mapStringToUserRole(userRole),
       });
 
       /* 비밀번호는 평문이 아니라 암호문이라서 입력에 존재하는 경우만 고려한다. */
@@ -693,4 +657,6 @@ export class UserController implements CoreController {
       response.status(Code.OK.code).json(success);
     },
   );
+
+  private uploadPhoto = multerInstance.multer.single('photo');
 }

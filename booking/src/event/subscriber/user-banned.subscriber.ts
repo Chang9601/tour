@@ -2,7 +2,8 @@ import { Message } from 'node-nats-streaming';
 
 import {
   CoreSubscriber,
-  generateUsersKey,
+  RedisType,
+  RedisUtil,
   Subject,
   UserBannedEvent,
 } from '@whooatour/common';
@@ -10,7 +11,7 @@ import {
 import { queueGroup } from '../../event/queue-group';
 import { redis } from '../../redis/redis';
 
-// TODO: OCC 적용 가능?
+// TODO: OCC 적용?
 export class UserBannedSubscriber extends CoreSubscriber<UserBannedEvent> {
   readonly subject = Subject.UserBanned;
   queueGroup = queueGroup;
@@ -20,22 +21,23 @@ export class UserBannedSubscriber extends CoreSubscriber<UserBannedEvent> {
     message: Message,
   ): Promise<void> {
     try {
-      // const { id, banned, userRole } = data;
+      const { id, banned, userRole } = data;
 
-      // const cachedUser = await redis.hgetall(`users:${id}`);
+      const isCached = await RedisUtil.isCached(id, RedisType.User, redis);
 
-      // if (findCachedUser(cachedUser)) {
-      //   await redis.hset(`users:${id}`, { banned: true });
-      // } else {
-      //   await cacheUser(
-      //     {
-      //       id,
-      //       banned,
-      //       userRole,
-      //     },
-      //     process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
-      //   );
-      // }
+      if (isCached) {
+        await RedisUtil.setHash(id, { banned: true }, RedisType.User, redis);
+      } else {
+        await RedisUtil.cacheUser(
+          {
+            id,
+            banned,
+            userRole,
+          },
+          1 * 60 * 60,
+          redis,
+        );
+      }
 
       message.ack();
     } catch (error) {

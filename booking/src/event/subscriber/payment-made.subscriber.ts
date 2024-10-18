@@ -12,7 +12,6 @@ import { BookingNotFoundError } from '../../error/booking-not-found.error';
 import { Booking } from '../../model/booking.model';
 import { queueGroup } from '../queue-group';
 
-// OK
 export class PaymentMadeSubscriber extends CoreSubscriber<PaymentMadeEvent> {
   readonly subject = Subject.PaymentMade;
   queueGroup = queueGroup;

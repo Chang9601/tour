@@ -1,9 +1,22 @@
-import axios from 'axios';
 import { NextFunction, Request, Response, Router } from 'express';
 
-import { CoreController, catchAsync, OAuth2Provider } from '@whooatour/common';
+import {
+  CoreController,
+  catchAsync,
+  JwtPayload,
+  JwtUtil,
+  CookieUtil,
+  OAuth2Util,
+  ApiResponse,
+  Code,
+  OAuth2AuthorizationCodeError,
+  OAuth2UserInfo,
+  RequestWithUser,
+} from '@whooatour/common';
+import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
-import { User } from '../model/user.model';
+import { DuplicateUserError } from '../error/duplicate-user.error';
+import { User, UserDocument } from '../model/user.model';
 import { UserRepository } from '../repository/user.repository';
 
 export class OAuth2Controller implements CoreController {
@@ -11,47 +24,19 @@ export class OAuth2Controller implements CoreController {
   public readonly router = Router();
   public readonly repository = new UserRepository(User);
 
-  // private get GOOGLE_OAUTH2_AUTHORIZATION_URI(): string {
-  //   return process.env.GOOGLE_OAUTH2_AUTHORIZATION_URI;
-  // }
-
   constructor() {
     this.initializeRoutes();
   }
 
   public initializeRoutes = (): void => {
-    this.router
-      .route(`${this.path}/authorization/google`)
-      .get(this.signInWithGoogle);
-    this.router
-      .route(`${this.path}/code/google`)
-      .get(this.signInWithGoogleRedirect);
+    this.router.get(`${this.path}/authorization/google`, this.signInWithGoogle);
+    this.router.get(`${this.path}/code/google`, this.signInWithGoogleRedirect);
+    this.router.get(`${this.path}/unlink/google`, this.unlinkGoogle);
 
-    // this.router
-    //   .route(`${this.path}/authorization/naver`)
-    //   .get(this.signInWithNaver);
-    // this.router
-    //   .route(
-    //     `${this.path}/naver/${this.getOAuth2RedirectUri(OAuth2Provider.Naver)}`,
-    //   )
-    //   .get(this.signInWithNaverRedirect);
-
-    // this.router.all('*', this.handleRoutes);
+    this.router.get(`${this.path}/authorization/naver`, this.signInWithNaver);
+    this.router.get(`${this.path}/code/naver`, this.signInWithNaverRedirect);
+    this.router.get(`${this.path}/unlink/naver`, this.unlinkNaver);
   };
-
-  // private handleRoutes = async (
-  //   request: Request,
-  //   response: Response,
-  //   next: NextFunction,
-  // ) => {
-  //   const error = {
-  //     codeAttr: Code.NOT_FOUND,
-  //     detail: `페이지 ${request.originalUrl}는 존재하지 않습니다.`,
-  //     isOperational: true,
-  //   };
-
-  //   next(error);
-  // };
 
   private signInWithGoogle = catchAsync(
     async (
@@ -59,61 +44,17 @@ export class OAuth2Controller implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      // const parameters = `?client_id=${this.getOAuth2ClientId(OAuth2Provider.Google)}&redirect_uri=${this.getOAuth2RedirectUri(OAuth2Provider.Google)}&response_type=code&scope=${this.getOAuth2Scope(OAuth2Provider.Google)}&access_type=offline&state=oauth2google`;
-      // const url = `${this.getOAuth2AuthorizationUri(OAuth2Provider.Google)}${parameters}`;
-
-      response.redirect(buildGoogleAuthroizationUri());
+      response.redirect(OAuth2Util.buildGoogleAuthroizationUri());
     },
   );
 
-  private signInWithNavere = catchAsync(
+  private signInWithNaver = catchAsync(
     async (
       request: Request,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      // const parameters = `?client_id=${this.getOAuth2ClientId(OAuth2Provider.Google)}&redirect_uri=${this.getOAuth2RedirectUri(OAuth2Provider.Google)}&response_type=code&scope=${this.getOAuth2Scope(OAuth2Provider.Google)}&access_type=offline&state=oauth2google`;
-      // const url = `${this.getOAuth2AuthorizationUri(OAuth2Provider.Google)}${parameters}`;
-
-      response.redirect(buildNaverAuthroizationUri());
-    },
-  );
-
-  private signInWithGoogleRedirect = catchAsync(
-    async (
-      request: Request,
-      response: Response,
-      next: NextFunction,
-    ): Promise<void> => {
-      const { code } = request.query;
-
-      const accessToken = await getGoogleAccessToken(code);
-
-      const userInfo = await getGoogleUserInfo(accessToken);
-
-      // const tokenResponse = await axios.post(
-      //   this.getOAuth2TokenUri(OAuth2Provider.Google),
-      //   {
-      //     client_id: this.getOAuth2ClientId(OAuth2Provider.Google),
-      //     client_secret: this.getOAuth2ClientSecret(OAuth2Provider.Google),
-      //     code,
-      //     redirect_uri: this.getOAuth2RedirectUri(OAuth2Provider.Google),
-      //     grant_type: this.getOAuth2AuthorizationGrant(OAuth2Provider.Google),
-      //   },
-      // );
-
-      // const accessToken = tokenResponse.data.access_token;
-
-      // const userInfoResponse = await axios.get(
-      //   this.getOAuth2UserInfoUri(OAuth2Provider.Google),
-      //   {
-      //     headers: {
-      //       Authorization: `Bearer ${accessToken}`,
-      //     },
-      //   },
-      // );
-
-      // console.log(userInfoResponse);
+      response.redirect(OAuth2Util.buildNaverAuthorizationUri());
     },
   );
 
@@ -123,68 +64,183 @@ export class OAuth2Controller implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const { code } = request.query;
+      const { code, error } = request.query;
 
-      const accessToken = await getNaverAccessToken(code);
+      if (error) {
+        console.log(error);
 
-      const userInfo = await getNaverUserInfo(accessToken);
+        return next(
+          new OAuth2AuthorizationCodeError(
+            Code.INTERNAL_SERVER_ERROR,
+            '네이버 로그인 인증에 실패했습니다',
+          ),
+        );
+      }
 
-      await this.processOAuth2(userInfo);
+      const tokens = await OAuth2Util.issueNaverTokens(code as string);
+      const accessToken = tokens.accessToken;
+      const refreshToken = tokens.refreshToken;
 
-      // const tokenResponse = await axios.post(
-      //   this.getOAuth2TokenUri(OAuth2Provider.Google),
-      //   {
-      //     client_id: this.getOAuth2ClientId(OAuth2Provider.Google),
-      //     client_secret: this.getOAuth2ClientSecret(OAuth2Provider.Google),
-      //     code,
-      //     redirect_uri: this.getOAuth2RedirectUri(OAuth2Provider.Google),
-      //     grant_type: this.getOAuth2AuthorizationGrant(OAuth2Provider.Google),
-      //   },
-      // );
+      const userInfo = await OAuth2Util.getNaverUserInfo(accessToken);
+      const user = await this.processOAuth2SignIn(
+        userInfo,
+        accessToken,
+        refreshToken,
+      );
 
-      // const accessToken = tokenResponse.data.access_token;
+      const payload: JwtPayload = { id: user._id };
+      const jwt: JwtBundle = JwtUtil.issue(payload, user.email);
+      const cookies = CookieUtil.setJwtCookies(
+        jwt.accessToken,
+        jwt.refreshToken,
+      );
 
-      // const userInfoResponse = await axios.get(
-      //   this.getOAuth2UserInfoUri(OAuth2Provider.Google),
-      //   {
-      //     headers: {
-      //       Authorization: `Bearer ${accessToken}`,
-      //     },
-      //   },
-      // );
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '네이버 로그인 했습니다.',
+      );
 
-      // console.log(userInfoResponse);
+      response
+        .status(Code.OK.code)
+        .setHeader('Set-Cookie', cookies)
+        .json(success);
     },
   );
 
-  private processOAuth2 = async (
+  private signInWithGoogleRedirect = catchAsync(
+    async (
+      request: Request,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const { code, error } = request.query;
+
+      if (error) {
+        console.log(error);
+
+        return next(
+          new OAuth2AuthorizationCodeError(
+            Code.INTERNAL_SERVER_ERROR,
+            '구글 로그인 인증에 실패했습니다',
+          ),
+        );
+      }
+
+      const tokens = await OAuth2Util.issueGoogleTokens(code as string);
+      const accessToken = tokens.accessToken;
+      const refreshToken = tokens.refreshToken;
+
+      const userInfo = await OAuth2Util.getGoogleUserInfo(accessToken);
+      const user = await this.processOAuth2SignIn(
+        userInfo,
+        accessToken,
+        refreshToken,
+      );
+
+      const payload: JwtPayload = { id: user._id };
+      const jwt: JwtBundle = JwtUtil.issue(payload, user.email);
+      const cookies = CookieUtil.setJwtCookies(
+        jwt.accessToken,
+        jwt.refreshToken,
+      );
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        user,
+        '구글 로그인 했습니다.',
+      );
+
+      response
+        .status(Code.OK.code)
+        .setHeader('Set-Cookie', cookies)
+        .json(success);
+    },
+  );
+
+  private unlinkNaver = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.findOne({ _id: request.user!.id });
+
+      await OAuth2Util.unlinkNaver(user.oAuth2AccessToken);
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        null,
+        '네이버 로그인 연동을 해제 했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private unlinkGoogle = catchAsync(
+    async (
+      request: RequestWithUser,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      const user = await this.repository.findOne({ _id: request.user!.id });
+
+      await OAuth2Util.unlinkGoogle(user.oAuth2AccessToken);
+
+      const success = ApiResponse.handleSuccess(
+        Code.OK.code,
+        Code.OK.message,
+        null,
+        '구글 로그인 연동을 해제 했습니다.',
+      );
+
+      response.status(Code.OK.code).json(success);
+    },
+  );
+
+  private processOAuth2SignIn = async (
     oAuth2UserInfo: OAuth2UserInfo,
-  ): Promise<void> => {
+    oAuth2AccessToken: string,
+    oAuth2RefreshToken: string,
+  ): Promise<UserDocument> => {
     if (!oAuth2UserInfo) {
     }
 
-    const user = await this.repository.find({
+    // TODO: 회원탈퇴인 경우 어떻게?
+    const user = await this.repository.findOne({
       email: oAuth2UserInfo.email,
-      active: true,
     });
 
     if (user) {
       if (user.oAuth2Provider !== oAuth2UserInfo.provider) {
-        throw new Error();
+        throw new DuplicateUserError(
+          Code.CONFLICT,
+          '해당 이메일로 이미 회원가입 했습니다.',
+        );
       }
 
-      this.repository.update(
+      await this.repository.update(
         { email: oAuth2UserInfo.email },
-        { name: oAuth2UserInfo.name },
+        { name: oAuth2UserInfo.name, updatedAt: new Date(Date.now()) },
       );
+
+      return user;
     } else {
-      this.repository.create({
+      const oAuth2User: unknown = {
         email: oAuth2UserInfo.email,
         name: oAuth2UserInfo.name,
         password: oAuth2UserInfo.id,
         oAuth2Provider: oAuth2UserInfo.provider,
         oAuth2ProviderId: oAuth2UserInfo.id,
-      });
+        oAuth2AccessToken,
+        oAuth2RefreshToken,
+      };
+
+      return await this.repository.create(oAuth2User as UserDocument);
     }
   };
 }

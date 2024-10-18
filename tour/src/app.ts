@@ -125,8 +125,8 @@ export class TourApplication implements CoreApplication {
       hpp({
         whitelist: [
           'duration',
-          'ratingAverage',
-          'ratingCount',
+          'ratingsAverage',
+          'ratingsCount',
           'price',
           'difficulty',
           'groupSize',

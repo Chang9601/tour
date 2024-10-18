@@ -5,7 +5,6 @@ import { CoreSubscriber, Subject, TourCreatedEvent } from '@whooatour/common';
 import { Tour } from '../../model/tour.model';
 import { queueGroup } from '../queue-group';
 
-// OK
 export class TourCreatedSubscriber extends CoreSubscriber<TourCreatedEvent> {
   readonly subject = Subject.TourCreated;
   queueGroup = queueGroup;

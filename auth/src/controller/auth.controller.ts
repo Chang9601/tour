@@ -1,3 +1,4 @@
+import * as bcryptjs from 'bcryptjs';
 import { NextFunction, Request, Response, Router } from 'express';
 
 import {
@@ -10,6 +11,7 @@ import {
   authenticationMiddleware,
   catchAsync,
   JwtType,
+  RequestWithUser,
 } from '@whooatour/common';
 import { JwtBundle } from '@whooatour/common/dist/type/jwt-bundle.type';
 
@@ -27,11 +29,12 @@ export class AuthController implements CoreController {
   }
 
   public initializeRoutes = (): void => {
-    this.router.route(`${this.path}/sign-in`).post(this.signIn);
-
-    this.router
-      .route(`${this.path}/sign-out`)
-      .post(authenticationMiddleware, this.signOut);
+    this.router.post(`${this.path}/sign-in`, this.signIn);
+    this.router.post(
+      `${this.path}/sign-out`,
+      authenticationMiddleware,
+      this.signOut,
+    );
   };
 
   private signIn = catchAsync(
@@ -52,7 +55,7 @@ export class AuthController implements CoreController {
       }
 
       /* find() 메서드의 미들웨어에서 active: false를 배제한다. */
-      const user = await this.repository.find({ email });
+      const user = await this.repository.findOne({ email });
 
       if (!(await user.matchPassword(password, user.password))) {
         return next(
@@ -65,28 +68,12 @@ export class AuthController implements CoreController {
 
       const payload: JwtPayload = { id: user._id };
 
-      const jwt: JwtBundle = JwtUtil.issue(payload);
+      const jwt: JwtBundle = JwtUtil.issue(payload, user.email);
 
-      const cookies = [
-        CookieUtil.set(
-          JwtType.AccessToken,
-          jwt.accessToken,
-          true,
-          process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
-          'Strict',
-          '/',
-          process.env.NODE_ENV === 'production' ? true : false,
-        ),
-        CookieUtil.set(
-          JwtType.RefreshToken,
-          jwt.refreshToken,
-          true,
-          process.env.COOKIE_REFRESH_EXPIRATION * 60 * 60 * 24,
-          'Strict',
-          '/',
-          process.env.NODE_ENV === 'production' ? true : false,
-        ),
-      ];
+      const cookies = CookieUtil.setJwtCookies(
+        jwt.accessToken,
+        jwt.refreshToken,
+      );
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -104,14 +91,11 @@ export class AuthController implements CoreController {
 
   private signOut = catchAsync(
     async (
-      request: Request,
+      request: RequestWithUser,
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const cookies = [
-        CookieUtil.clear(JwtType.AccessToken, '/'),
-        CookieUtil.clear(JwtType.RefreshToken, '/'),
-      ];
+      const cookies = CookieUtil.clearJwtCookies();
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,

@@ -1,11 +1,16 @@
 import { Message } from 'node-nats-streaming';
 
-import { CoreSubscriber, Subject, UserBannedEvent } from '@whooatour/common';
+import {
+  CoreSubscriber,
+  RedisType,
+  RedisUtil,
+  Subject,
+  UserBannedEvent,
+} from '@whooatour/common';
 
 import { queueGroup } from '../../event/queue-group';
 import { redis } from '../../redis/redis';
 
-// TODO: OCC 적용 가능?
 export class UserBannedSubscriber extends CoreSubscriber<UserBannedEvent> {
   readonly subject = Subject.UserBanned;
   queueGroup = queueGroup;
@@ -15,7 +20,23 @@ export class UserBannedSubscriber extends CoreSubscriber<UserBannedEvent> {
     message: Message,
   ): Promise<void> {
     try {
-      await redis.hset(`users:${data.id}`, { banned: true });
+      const { id, banned, userRole } = data;
+
+      const isCached = await RedisUtil.isCached(id, RedisType.User, redis);
+
+      if (isCached) {
+        await RedisUtil.setHash(id, { banned: true }, RedisType.User, redis);
+      } else {
+        await RedisUtil.cacheUser(
+          {
+            id,
+            banned,
+            userRole,
+          },
+          1 * 60 * 60,
+          redis,
+        );
+      }
 
       message.ack();
     } catch (error) {

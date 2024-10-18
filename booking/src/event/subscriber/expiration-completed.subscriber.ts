@@ -14,7 +14,6 @@ import { BookingCancelledPublisher } from '../../event/publisher/booking-cancell
 import { Booking } from '../../model/booking.model';
 import { queueGroup } from '../queue-group';
 
-// OK
 export class ExpirationCompletedSubscriber extends CoreSubscriber<ExpirationCompletedEvent> {
   readonly subject = Subject.ExpirationCompleted;
   queueGroup = queueGroup;

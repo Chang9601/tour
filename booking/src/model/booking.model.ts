@@ -1,4 +1,4 @@
-import mongoose, { Query } from 'mongoose';
+import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
 import { BookingStatus } from '@whooatour/common';
@@ -25,7 +25,7 @@ export interface BookingModel extends mongoose.Model<BookingDocument> {
   build(attrs: BookingAttribute): Promise<BookingDocument>;
 }
 
-type BookingFindQuery = Query<
+type BookingFindQuery = mongoose.Query<
   BookingDocument | BookingDocument[],
   BookingDocument,
   {},
@@ -41,9 +41,9 @@ const bookingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      required: true,
       enum: Object.values(BookingStatus),
       default: BookingStatus.Pending,
+      required: [true, '예약 상태가 있어야 합니다.'],
     },
     tour: {
       type: mongoose.Schema.ObjectId,
@@ -82,6 +82,10 @@ const bookingSchema = new mongoose.Schema(
 
 bookingSchema.pre(/^find/, function (this: BookingFindQuery, next) {
   this.find({ status: { $ne: BookingStatus.Cancelled } });
+  /* find() 계열 메서드에서 tour를 채운다. */
+  this.populate({
+    path: 'tour',
+  });
 
   next();
 });

@@ -80,9 +80,6 @@ beforeAll(async () => {
   process.env.PORT = 3000;
   process.env.MONGO_URI = uri;
 
-  process.env.COOKIE_ACCESS_EXPIRATION = 1;
-  process.env.COOKIE_REFRESH_EXPIRATION = 30;
-
   process.env.JWT_ACCESS_SECRET = 'tour-jwt-access';
   process.env.JWT_REFRESH_SECRET = 'tour-jwt-refresh';
 
@@ -109,13 +106,13 @@ afterAll(async () => {
 global.signIn = () => {
   const payload: JwtPayload = { id: new mongoose.Types.ObjectId() };
 
-  const jwt: JwtBundle = JwtUtil.issue(payload);
+  const jwt: JwtBundle = JwtUtil.issue(payload, 'user@naver.com');
 
   const cookie = CookieUtil.set(
     JwtType.AccessToken,
     jwt.accessToken,
     true,
-    process.env.COOKIE_ACCESS_EXPIRATION * 60 * 60,
+    1 * 60 * 60,
     'Strict',
     '/',
     false,

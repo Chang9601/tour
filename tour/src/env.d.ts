@@ -13,9 +13,6 @@ declare global {
       REDIS_HOST: string;
       REDIS_PORT: number;
 
-      COOKIE_ACCESS_EXPIRATION: number;
-      COOKIE_REFRESH_EXPIRATION: number;
-
       JWT_ACCESS_SECRET: string;
       JWT_REFRESH_SECRET: string;
 

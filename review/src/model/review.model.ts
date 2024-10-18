@@ -19,12 +19,19 @@ interface ReviewDocument extends mongoose.Document {
   tour: TourDocument;
   userId: mongoose.Types.ObjectId;
   sequence: number /* sequence는 도큐먼트 인터페이스에 없기 때문에 직접 정의한다. */;
-  canUpdate(): boolean;
 }
 
 interface ReviewModel extends mongoose.Model<ReviewDocument> {
   build(attrs: ReviewAttribute): Promise<ReviewDocument>;
 }
+
+type ReviewFindQuery = mongoose.Query<
+  ReviewDocument | ReviewDocument[],
+  ReviewDocument,
+  {},
+  ReviewFindQuery,
+  'find' | 'findOne'
+>;
 
 const reviewSchema = new mongoose.Schema(
   {
@@ -56,6 +63,7 @@ const reviewSchema = new mongoose.Schema(
     tour: {
       type: mongoose.Schema.ObjectId,
       ref: 'Tour',
+      required: [true, '여행 도큐먼트가 있어야 합니다.'],
     },
     userId: {
       type: mongoose.Schema.ObjectId,
@@ -95,12 +103,15 @@ reviewSchema.pre('save', function (next) {
   this.updatedAt = new Date(Date.now());
 });
 
-reviewSchema.pre('deleteOne', function (next) {
-  this;
+reviewSchema.pre(/^find/, function (this: ReviewFindQuery, next) {
+  this.populate({
+    path: 'tour',
+  });
 });
 
-/* 여행과 사용자의 조합을 유일하게 만드는 복합 인덱스. */
+/* 여행과 사용자의 조합을 유일하게 만드는 복합 인덱스로 중복 리뷰를 방지한다. */
 reviewSchema.index({ tour: 1, userId: 1 }, { unique: true });
+reviewSchema.index({ title: 1 });
 
 reviewSchema.set('versionKey', 'sequence');
 /*
@@ -118,49 +129,51 @@ reviewSchema.statics.build = async function (attrs: ReviewAttribute) {
   return await Review.create(attrs);
 };
 
-reviewSchema.methods.canUpdate = function (): boolean {
-  const MAX_UPDATE = 3;
+reviewSchema.statics.calculateAverageRating = async function (
+  tourId: mongoose.Types.ObjectId,
+) {
+  const statistics = await this.aggregate([
+    {
+      $match: { tour: tourId },
+    },
+    {
+      $group: {
+        _id: '$tour',
+        countRating: { $sum: 1 },
+        averageRating: { $avg: '$rating' },
+      },
+    },
+  ]);
 
-  return this.updateCount < MAX_UPDATE;
+  return statistics.length > 0
+    ? statistics
+    : { countRating: 0, averageRating: 0 };
+
+  // TODO: 여행의 평점 개수(ratingCount)와 평점 값(ratingAverage)을 수정한다.
 };
 
-// reviewSchema.statics.calculateAverageRating = async function (
-//   tourId: mongoose.Types.ObjectId
-// ) {
-//   const statistics = await this.aggregate([
-//     {
-//       $match: { tourId: tourId },
-//     },
-//     {
-//       $group: {
-//         _id: '$tourId',
-//         countRating: { $sum: 1 },
-//         averageRating: { $avg: '$rating' },
-//       },
-//     },
-//   ]);
+/*
+ * pre의 경우 현재 리뷰 도큐먼트가 컬렉션에 저장되어 있지않다.
+ * post의 경우 도큐먼트가 데이터베이스에 저장된 상태이다.
+ */
+reviewSchema.post('save', function (this: any) {
+  this.constructor.calculateAverageRating(this.tour);
+});
 
-//   // TODO: 여행의 평점 개수(ratingCount)와 평점 값(ratingAverage)을 수정한다.
-// };
+/**
+ * findByIdAndUpdate() 와 findByIdAndDelete()는 findOneAnd를 기반으로 한다.
+ * 따라서, findOneAnd를 사용한다.
+ */
+reviewSchema.pre(/^findOneAnd/, async function (this: any, next) {
+  this.r = await this.findOne();
 
-// reviewSchema.post('save', function () {
-//   this.constructor.calculateAverageRating(this.tourId);
-// });
+  next();
+});
 
-// /**
-//  * findByIdAndUpdate() 와 findByIdAndDelete()는 findOneAnd를 기반으로 한다.
-//  * 따라서, findOneAnd를 사용한다.
-//  */
-// reviewSchema.pre(/^findOneAnd/, async function (next) {
-//   this.r = await this.findOne();
-
-//   next();
-// });
-
-// reviewSchema.post(/^findOneAnd/, async function () {
-//   /* await this.findOne(); 쿼리가 이미 실행되어서 작동하지 않는다. */
-//   await this.r.calculateAverageRating(this.r.tour);
-// });
+reviewSchema.post(/^findOneAnd/, async function (this: any, next) {
+  /* await this.findOne(); 쿼리가 이미 실행되어서 작동하지 않는다. */
+  await this.r.constructor.calculateAverageRating(this.r.tour);
+});
 
 const Review = mongoose.model<ReviewDocument, ReviewModel>(
   'Review',

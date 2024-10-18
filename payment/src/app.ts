@@ -64,6 +64,7 @@ export class PaymentApplication implements CoreApplication {
 
     new BookingCancelledSubscriber(natsInstance.client).subscribe();
     new BookingMadeSubscriber(natsInstance.client).subscribe();
+
     new UserBannedSubscriber(natsInstance.client).subscribe();
     new UserUnbannedSubscriber(natsInstance.client).subscribe();
   }

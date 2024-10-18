@@ -51,6 +51,7 @@ export class AuthApplication implements CoreApplication {
     return server;
   }
 
+  // TODO: 애플리케이션이 여러 개로 확장될 경우?
   public runCronJobs(): void {
     cron.schedule(
       '* * * * *',
@@ -122,7 +123,8 @@ export class AuthApplication implements CoreApplication {
 
     /*
      * XSS 공격에 대비한 데이터 위생처리를 적용한다.
-     * 사용자 입력에서 악성 HTML 코드를 제거한다. 즉, HTML 기호를 변환하여 XSS 공격을 방지한다.
+     * 사용자 입력에서 악성 HTML 코드를 제거한다.
+     * 즉, HTML 기호를 변환하여 XSS 공격을 방지한다.
      */
     this.app.use(xss());
 
@@ -130,7 +132,7 @@ export class AuthApplication implements CoreApplication {
     this.app.use(
       hpp({
         /* 쿼리 문자열에서 중복을 허용하는 화이트 리스트 */
-        whitelist: ['name'],
+        whitelist: ['name', 'email', 'userRole'],
       }),
     );
 

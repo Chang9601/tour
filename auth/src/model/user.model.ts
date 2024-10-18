@@ -6,7 +6,6 @@ import validator from 'validator';
 
 import { OAuth2Provider, Optional, UserRole } from '@whooatour/common';
 
-// OK
 interface UserAttribute {
   email: string;
   name: string;
@@ -23,11 +22,14 @@ export interface UserDocument extends mongoose.Document {
   email: string;
   name: string;
   oAuth2Provider: string;
+  oAuth2AccessToken: string;
   oAuth2ProviderId: string;
+  oAuth2RefreshToken: string;
   password: string;
   passwordResetToken: Optional<string>;
   passwordResetTokenExpiration: Optional<Date>;
   photo: string;
+  refreshToken: string;
   userRole: UserRole;
   sequence: number;
   matchPassword(
@@ -80,8 +82,9 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(OAuth2Provider),
       default: OAuth2Provider.Local,
     },
+    oAuth2AccessToken: String,
     oAuth2ProviderId: String,
-    oAuth2ProviderRefreshToken: String,
+    oAuth2RefreshToken: String,
     password: {
       type: String,
       required: [true, '비밀번호가 있어야 합니다'],
@@ -142,15 +145,20 @@ userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
   }
-
-  this.password = await bcryptjs.hash(this.password!, 12);
+  this.password = await bcryptjs.hash(this.password, 12);
 
   next();
 });
 
-userSchema.pre('updateOne', function (next) {});
+userSchema.pre('save', function (next) {
+  if (this.isNew) {
+    return next();
+  }
 
-userSchema.pre('deleteOne', function (next) {});
+  this.updatedAt = new Date(Date.now());
+
+  next();
+});
 
 userSchema.pre('save', function (next) {
   /* 비밀번호가 변경되지 않았거나 새로운 도큐먼트인 경우 넘어간다. */
@@ -158,6 +166,10 @@ userSchema.pre('save', function (next) {
     return next();
   }
 
+  /*
+   * passwordUpdatedAt가 존재하는 이유는 JWT 토큰의 타임스탬프와 비교를 위해서다.
+   * 즉, JWT 토큰이 발급된 후에 비밀번호를 변경했는지 확인
+   * JWT 토큰이 비밀번호 수정 타임스탬프 전에 생성될 수 있기 때문에 1초를 가감한다. */
   const now = new Date(Date.now() - 1000);
   this.passwordUpdatedAt = now;
 

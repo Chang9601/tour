@@ -22,6 +22,7 @@ import { BookingNotFoundError } from '../error/booking-not-found.error';
 import { PaymentMadePublisher } from '../event/publisher/payment-made.publisher';
 import { Booking } from '../model/booking.model';
 import { Payment } from '../model/payment.model';
+import { redis } from '../redis/redis';
 import { PaymentRepository } from '../repository/payment.repository';
 import { stripe } from '../stripe/stripe';
 
@@ -36,33 +37,20 @@ export class PaymentController implements CoreController {
   }
 
   public initializeRoutes = (): void => {
-    this.router
-      .route(`${this.path}/:id`)
-      .get(authenticationMiddleware, this.getMyPayment);
+    this.router.use(authenticationMiddleware(redis));
+
+    this.router.get(`${this.path}/:id`, this.getMyPayment);
 
     this.router
       .route(`${this.path}`)
-      .get(authenticationMiddleware, this.getMyPayments)
-      .post(authenticationMiddleware, this.makeMyPayment);
+      .get(this.getMyPayments)
+      .post(this.makeMyPayment);
 
     /* 관리자 API */
-    this.router
-      .route(`${this.adminPath}/:id`)
-      .get(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.getPayment,
-      )
-      .post(authenticationMiddleware, this.makeMyPayment);
+    this.router.use(authorizationMiddleware(UserRole.Admin));
 
-    this.router
-      .route(`${this.adminPath}`)
-      .get(
-        authenticationMiddleware,
-        authorizationMiddleware(UserRole.Admin),
-        this.getPayments,
-      )
-      .post(authenticationMiddleware, this.makeMyPayment);
+    this.router.get(`${this.adminPath}/:id`, this.getPayment);
+    this.router.get(`${this.adminPath}`, this.getPayments);
 
     this.router.all('*', this.handleRoutes);
   };
@@ -87,7 +75,7 @@ export class PaymentController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const payments = await this.repository.find({
+      const payments = await this.repository.findOne({
         _id: request.params.id,
         userId: request.user!.id,
       });
@@ -110,7 +98,7 @@ export class PaymentController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll({ userId: request.user!.id }),
+        this.repository.find({ userId: request.user!.id }),
         request.query,
       )
         .filter()
@@ -215,7 +203,7 @@ export class PaymentController implements CoreController {
       response: Response,
       next: NextFunction,
     ): Promise<void> => {
-      const payment = await this.repository.find({ _id: request.params.id });
+      const payment = await this.repository.findOne({ _id: request.params.id });
 
       const success = ApiResponse.handleSuccess(
         Code.OK.code,
@@ -235,7 +223,7 @@ export class PaymentController implements CoreController {
       next: NextFunction,
     ): Promise<void> => {
       const queryBuilder = new QueryBuilder(
-        this.repository.findAll(),
+        this.repository.find(),
         request.query,
       )
         .filter()

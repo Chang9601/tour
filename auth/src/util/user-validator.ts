@@ -4,7 +4,7 @@ import { RunnableValidationChains } from 'express-validator/lib/middlewares/sche
 import {
   Code,
   isAllowedFileExtension,
-  NotAllowedFileExtension,
+  NotAllowedFileExtensionError,
 } from '@whooatour/common';
 
 import { PasswordMismatchError } from '../error/password-mismatch.error';
@@ -53,7 +53,7 @@ export class UserValidator {
           custom: {
             options: (value) => {
               if (!isAllowedFileExtension(value)) {
-                throw new NotAllowedFileExtension(
+                throw new NotAllowedFileExtensionError(
                   Code.BAD_REQUEST,
                   '허용되지 않는 파일 확장자입니다.',
                 );

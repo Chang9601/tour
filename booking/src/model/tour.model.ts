@@ -54,7 +54,6 @@ const tourSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, '이름이 있어야 합니다.'],
-      unique: true,
       trim: true,
       maxlength: [20, '이름은 20자 이하입니다.'],
       minlength: [2, '이름은 2자 이상입니다.'],

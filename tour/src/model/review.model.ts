@@ -23,6 +23,7 @@ const reviewSchema = new mongoose.Schema(
     tour: {
       type: mongoose.Schema.ObjectId,
       ref: 'Tour',
+      requird: [true, '예약 도큐먼트가 있어야 합니다.'],
     },
     createdAt: {
       type: Date,
